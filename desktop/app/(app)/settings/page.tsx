@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getStoredUser, getAPIKey, logout, StoredUser } from "@/lib/auth";
 import { getCurrentUser, MeResponse } from "@/lib/shannon/api";
+import { listApiKeys, ApiKeyInfo } from "@/lib/shannon/settings";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -20,17 +22,33 @@ import {
     Zap,
     Crown,
     AlertCircle,
+    Settings as SettingsIcon,
+    Bot,
+    ArrowRight,
 } from "lucide-react";
 
 type Tier = "free" | "pro" | "enterprise" | "";
 
 export default function SettingsPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const initialTab = searchParams.get("tab") || "general";
+
     const [storedUser, setStoredUser] = useState<StoredUser | null>(null);
     const [userInfo, setUserInfo] = useState<MeResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [copiedKey, setCopiedKey] = useState(false);
+    const [apiKeys, setApiKeys] = useState<ApiKeyInfo[]>([]);
+
+    const loadApiKeys = useCallback(async () => {
+        try {
+            const keys = await listApiKeys();
+            setApiKeys(keys);
+        } catch (err) {
+            console.error("Failed to load API keys:", err);
+        }
+    }, []);
 
     useEffect(() => {
         async function loadUserData() {
@@ -50,6 +68,9 @@ export default function SettingsPage() {
                         // Continue with stored user info
                     }
                 }
+
+                // Load API keys
+                await loadApiKeys();
             } catch (err) {
                 console.error("Failed to load user data:", err);
                 setError("Failed to load settings");
@@ -107,6 +128,9 @@ export default function SettingsPage() {
     const tierInfo = getTierInfo(tier);
     const TierIcon = tierInfo.icon;
 
+    const configuredProvidersCount = apiKeys.filter(k => k.is_configured).length;
+    const hasAnyKey = configuredProvidersCount > 0;
+
     if (loading) {
         return (
             <div className="flex-1 flex items-center justify-center">
@@ -148,114 +172,192 @@ export default function SettingsPage() {
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
                     <p className="text-muted-foreground">
-                        Manage your account and API access.
+                        Manage your account and API configuration.
                     </p>
                 </div>
 
-                {/* User Profile Card */}
-                <Card>
-                    <CardHeader className="pb-3">
-                        <div className="flex items-center gap-4">
-                            <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                                <User className="h-6 w-6 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1">
-                                <CardTitle className="text-lg">{displayName}</CardTitle>
-                                <CardDescription>{displayEmail}</CardDescription>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Badge variant="outline" className={tierInfo.color}>
-                                    <TierIcon className="h-3 w-3 mr-1" />
-                                    {tierInfo.label}
+                <Tabs defaultValue={initialTab} className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="general">
+                            <SettingsIcon className="h-4 w-4 mr-2" />
+                            General
+                        </TabsTrigger>
+                        <TabsTrigger value="api-keys">
+                            <Bot className="h-4 w-4 mr-2" />
+                            API Keys
+                            {!hasAnyKey && (
+                                <Badge variant="outline" className="ml-2 bg-amber-500/10 text-amber-600 border-amber-500/20">
+                                    <AlertCircle className="h-3 w-3 mr-1" />
+                                    Required
                                 </Badge>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={handleLogout}
-                                    className="text-muted-foreground hover:text-destructive"
-                                >
-                                    <LogOut className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        </div>
-                    </CardHeader>
-                </Card>
+                            )}
+                        </TabsTrigger>
+                    </TabsList>
 
-                {/* API Key Card */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2">
-                            <Key className="h-4 w-4" />
-                            API Key
-                        </CardTitle>
-                        <CardDescription>
-                            Your API key for authenticating requests.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {maskedApiKey ? (
-                            <div className="flex items-center gap-2">
-                                <Input
-                                    value={maskedApiKey}
-                                    readOnly
-                                    className="font-mono text-sm"
-                                />
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={copyApiKey}
-                                >
-                                    {copiedKey ? (
-                                        <Check className="h-4 w-4 text-green-500" />
-                                    ) : (
-                                        <Copy className="h-4 w-4" />
-                                    )}
-                                </Button>
-                            </div>
-                        ) : (
-                            <p className="text-sm text-muted-foreground">
-                                No API key found. Please log out and register again to get a new API key.
-                            </p>
+                    <TabsContent value="general" className="space-y-6 mt-6">
+                        {/* User Profile Card */}
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <div className="flex items-center gap-4">
+                                    <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                                        <User className="h-6 w-6 text-muted-foreground" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <CardTitle className="text-lg">{displayName}</CardTitle>
+                                        <CardDescription>{displayEmail}</CardDescription>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="outline" className={tierInfo.color}>
+                                            <TierIcon className="h-3 w-3 mr-1" />
+                                            {tierInfo.label}
+                                        </Badge>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={handleLogout}
+                                            className="text-muted-foreground hover:text-destructive"
+                                        >
+                                            <LogOut className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                        </Card>
+
+                        {/* API Key Card */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg flex items-center gap-2">
+                                    <Key className="h-4 w-4" />
+                                    API Key
+                                </CardTitle>
+                                <CardDescription>
+                                    Your API key for authenticating requests.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {maskedApiKey ? (
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            value={maskedApiKey}
+                                            readOnly
+                                            className="font-mono text-sm"
+                                        />
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            onClick={copyApiKey}
+                                        >
+                                            {copiedKey ? (
+                                                <Check className="h-4 w-4 text-green-500" />
+                                            ) : (
+                                                <Copy className="h-4 w-4" />
+                                            )}
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">
+                                        No API key found. Please log out and register again to get a new API key.
+                                    </p>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Rate Limits Card */}
+                        {userInfo?.rate_limits && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="text-lg flex items-center gap-2">
+                                        <Activity className="h-4 w-4" />
+                                        Rate Limits
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Request limits to ensure fair usage.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <div className="text-sm text-muted-foreground">Per Minute</div>
+                                            <div className="text-2xl font-semibold">
+                                                {userInfo.rate_limits.minute?.remaining ?? 0}
+                                                <span className="text-base font-normal text-muted-foreground">
+                                                    {" "}/ {userInfo.rate_limits.minute?.limit ?? 0}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <div className="text-sm text-muted-foreground">Per Hour</div>
+                                            <div className="text-2xl font-semibold">
+                                                {userInfo.rate_limits.hour?.remaining ?? 0}
+                                                <span className="text-base font-normal text-muted-foreground">
+                                                    {" "}/ {userInfo.rate_limits.hour?.limit ?? 0}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         )}
-                    </CardContent>
-                </Card>
+                    </TabsContent>
 
-                {/* Rate Limits Card */}
-                {userInfo?.rate_limits && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg flex items-center gap-2">
-                                <Activity className="h-4 w-4" />
-                                Rate Limits
-                            </CardTitle>
-                            <CardDescription>
-                                Request limits to ensure fair usage.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <div className="text-sm text-muted-foreground">Per Minute</div>
-                                    <div className="text-2xl font-semibold">
-                                        {userInfo.rate_limits.minute?.remaining ?? 0}
-                                        <span className="text-base font-normal text-muted-foreground">
-                                            {" "}/ {userInfo.rate_limits.minute?.limit ?? 0}
-                                        </span>
-                                    </div>
+                    <TabsContent value="api-keys" className="space-y-6 mt-6">
+                        {/* Provider Status Overview */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg flex items-center gap-2">
+                                    <Bot className="h-4 w-4" />
+                                    Provider Status
+                                </CardTitle>
+                                <CardDescription>
+                                    {configuredProvidersCount} of 5 providers configured
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="flex flex-wrap gap-2">
+                                    {apiKeys.length === 0 ? (
+                                        <p className="text-sm text-muted-foreground">No providers configured yet</p>
+                                    ) : (
+                                        apiKeys.map(key => (
+                                            <Badge
+                                                key={key.provider}
+                                                variant="outline"
+                                                className={
+                                                    key.is_configured
+                                                        ? "bg-green-500/10 text-green-600 border-green-500/20"
+                                                        : "bg-muted text-muted-foreground border-border"
+                                                }
+                                            >
+                                                {key.is_configured && <Check className="h-3 w-3 mr-1" />}
+                                                {key.provider.charAt(0).toUpperCase() + key.provider.slice(1)}
+                                            </Badge>
+                                        ))
+                                    )}
                                 </div>
-                                <div className="space-y-1">
-                                    <div className="text-sm text-muted-foreground">Per Hour</div>
-                                    <div className="text-2xl font-semibold">
-                                        {userInfo.rate_limits.hour?.remaining ?? 0}
-                                        <span className="text-base font-normal text-muted-foreground">
-                                            {" "}/ {userInfo.rate_limits.hour?.limit ?? 0}
-                                        </span>
+
+                                {!hasAnyKey && (
+                                    <div className="mt-4 flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-600 text-sm">
+                                        <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                        <div>
+                                            <p className="font-medium">No API keys configured</p>
+                                            <p className="text-xs mt-1">
+                                                Please configure at least one LLM provider API key to use Shannon.
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
+                                )}
+
+                                <Button
+                                    onClick={() => router.push("/settings/api-keys")}
+                                    className="w-full mt-4"
+                                >
+                                    Manage API Keys
+                                    <ArrowRight className="ml-2 h-4 w-4" />
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                </Tabs>
             </div>
         </div>
     );

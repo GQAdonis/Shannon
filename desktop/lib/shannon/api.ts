@@ -3,7 +3,79 @@
 
 import { getAccessToken, getAPIKey } from "@/lib/auth";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+// Global variable to cache the API URL once determined
+declare global {
+    interface Window {
+        __SHANNON_API_URL?: string;
+    }
+}
+
+/**
+ * Get the API base URL synchronously.
+ * This relies on the ServerProvider to set window.__SHANNON_API_URL when the server is ready.
+ *
+ * For Tauri: Returns the embedded server URL set by the server-ready event
+ * For Web: Returns the environment variable or default
+ *
+ * IMPORTANT: In Tauri mode, if the server is not ready yet, this will return an empty string
+ * to prevent API calls before the server is available.
+ */
+function getApiBaseUrl(): string {
+    // Check if running in Tauri
+    const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
+
+    if (isTauri) {
+        // In Tauri, ONLY use the URL from ServerProvider (set by server-ready event)
+        // If not set, return empty string to prevent premature API calls
+        return (typeof window !== 'undefined' && window.__SHANNON_API_URL) || "";
+    }
+
+    // Web mode: use environment variable or default
+    return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+}
+
+// Get the API base URL at runtime
+function getApiUrl(path: string): string {
+    return `${getApiBaseUrl()}${path}`;
+}
+
+export async function pollReadiness(baseUrl: string, timeoutMs = 1000): Promise<boolean> {
+    try {
+        const response = await fetch(`${baseUrl}/ready`, {
+            method: "GET",
+            cache: "no-store",
+            signal: AbortSignal.timeout(timeoutMs),
+        });
+
+        if (!response.ok) {
+            return false;
+        }
+
+        const payload = await response.json().catch(() => null);
+        if (payload && typeof payload.status === "string") {
+            return payload.status === "ready" || payload.status === "ok";
+        }
+
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+export async function findEmbeddedApiUrl(
+    startPort = 1906,
+    endPort = 1915,
+    timeoutMs = 1000,
+): Promise<string | null> {
+    for (let port = startPort; port <= endPort; port += 1) {
+        const url = `http://localhost:${port}`;
+        if (await pollReadiness(url, timeoutMs)) {
+            return url;
+        }
+    }
+
+    return null;
+}
 
 // =============================================================================
 // Auth Headers Helper
@@ -83,7 +155,7 @@ export async function register(
     password: string,
     fullName?: string
 ): Promise<AuthResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/auth/register`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -105,7 +177,7 @@ export async function register(
 }
 
 export async function login(email: string, password: string): Promise<AuthResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/auth/login`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -126,7 +198,7 @@ export async function refreshToken(refreshToken: string): Promise<{
     refresh_token: string;
     expires_in: number;
 }> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/auth/refresh`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -142,7 +214,7 @@ export async function refreshToken(refreshToken: string): Promise<{
 }
 
 export async function getCurrentUser(): Promise<MeResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/auth/me`, {
         headers: getAuthHeaders(),
     });
 
@@ -158,11 +230,15 @@ export async function getCurrentUser(): Promise<MeResponse> {
 // =============================================================================
 
 export interface TaskSubmitRequest {
-    query: string;
+    prompt: string;  // Changed from 'query' to match backend API
     session_id?: string;
-    context?: Record<string, any>;
-    research_strategy?: "quick" | "standard" | "deep" | "academic";
-    max_concurrent_agents?: number;
+    task_type?: string;
+    model?: string;
+    max_tokens?: number;
+    temperature?: number;
+    system_prompt?: string;
+    tools?: any[];
+    metadata?: Record<string, any>;
 }
 
 export interface TaskSubmitResponse {
@@ -175,7 +251,7 @@ export interface TaskSubmitResponse {
 }
 
 export async function submitTask(request: TaskSubmitRequest): Promise<TaskSubmitResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/tasks`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/tasks`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -193,7 +269,7 @@ export async function submitTask(request: TaskSubmitRequest): Promise<TaskSubmit
 }
 
 export async function getTask(taskId: string) {
-    const response = await fetch(`${API_BASE_URL}/api/v1/tasks/${taskId}`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/tasks/${taskId}`, {
         headers: getAuthHeaders(),
     });
 
@@ -223,7 +299,7 @@ export interface TaskListResponse {
 }
 
 export async function listTasks(limit: number = 50, offset: number = 0): Promise<TaskListResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/tasks?limit=${limit}&offset=${offset}`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/tasks?limit=${limit}&offset=${offset}`, {
         headers: getAuthHeaders(),
     });
 
@@ -235,7 +311,7 @@ export async function listTasks(limit: number = 50, offset: number = 0): Promise
 }
 
 export function getStreamUrl(workflowId: string): string {
-    const baseUrl = `${API_BASE_URL}/api/v1/stream/sse?workflow_id=${workflowId}`;
+    const baseUrl = `${getApiBaseUrl()}/api/v1/stream/sse?workflow_id=${workflowId}`;
 
     // Add API key for SSE auth (EventSource can't use headers)
     const apiKey = getAPIKey();
@@ -352,7 +428,7 @@ export interface SessionEventsResponse {
 // Session API Functions
 
 export async function listSessions(limit: number = 20, offset: number = 0): Promise<SessionListResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/sessions?limit=${limit}&offset=${offset}`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/sessions?limit=${limit}&offset=${offset}`, {
         headers: getAuthHeaders(),
     });
 
@@ -364,7 +440,7 @@ export async function listSessions(limit: number = 20, offset: number = 0): Prom
 }
 
 export async function getSession(sessionId: string): Promise<Session> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/sessions/${sessionId}`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/sessions/${sessionId}`, {
         headers: getAuthHeaders(),
     });
 
@@ -376,7 +452,7 @@ export async function getSession(sessionId: string): Promise<Session> {
 }
 
 export async function getSessionHistory(sessionId: string): Promise<SessionHistoryResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/sessions/${sessionId}/history`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/sessions/${sessionId}/history`, {
         headers: getAuthHeaders(),
     });
 
@@ -397,7 +473,7 @@ export async function getSessionEvents(sessionId: string, limit: number = 10, of
         params.append('include_payload', 'true');
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/v1/sessions/${sessionId}/events?${params.toString()}`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/sessions/${sessionId}/events?${params.toString()}`, {
         headers: getAuthHeaders(),
     });
 
@@ -429,7 +505,7 @@ export interface ControlStateResponse {
 // Task Control API Functions
 
 export async function pauseTask(taskId: string, reason?: string): Promise<TaskControlResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/tasks/${taskId}/pause`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/tasks/${taskId}/pause`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -447,7 +523,7 @@ export async function pauseTask(taskId: string, reason?: string): Promise<TaskCo
 }
 
 export async function resumeTask(taskId: string, reason?: string): Promise<TaskControlResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/tasks/${taskId}/resume`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/tasks/${taskId}/resume`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -465,7 +541,7 @@ export async function resumeTask(taskId: string, reason?: string): Promise<TaskC
 }
 
 export async function cancelTask(taskId: string, reason?: string): Promise<{ success: boolean }> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/tasks/${taskId}/cancel`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/tasks/${taskId}/cancel`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -483,7 +559,7 @@ export async function cancelTask(taskId: string, reason?: string): Promise<{ suc
 }
 
 export async function getTaskControlState(taskId: string): Promise<ControlStateResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/tasks/${taskId}/control-state`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/tasks/${taskId}/control-state`, {
         headers: getAuthHeaders(),
     });
 
@@ -584,7 +660,7 @@ export async function listSchedules(
         params.set('status', status);
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/v1/schedules?${params}`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/schedules?${params}`, {
         headers: getAuthHeaders(),
     });
 
@@ -596,7 +672,7 @@ export async function listSchedules(
 }
 
 export async function getSchedule(scheduleId: string): Promise<ScheduleInfo> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/schedules/${scheduleId}`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/schedules/${scheduleId}`, {
         headers: getAuthHeaders(),
     });
 
@@ -617,7 +693,7 @@ export async function getScheduleRuns(
         page_size: String(pageSize),
     });
 
-    const response = await fetch(`${API_BASE_URL}/api/v1/schedules/${scheduleId}/runs?${params}`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/schedules/${scheduleId}/runs?${params}`, {
         headers: getAuthHeaders(),
     });
 
@@ -629,7 +705,7 @@ export async function getScheduleRuns(
 }
 
 export async function createSchedule(request: CreateScheduleRequest): Promise<ScheduleInfo> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/schedules`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/schedules`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -650,7 +726,7 @@ export async function updateSchedule(
     scheduleId: string,
     request: UpdateScheduleRequest
 ): Promise<ScheduleInfo> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/schedules/${scheduleId}`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/schedules/${scheduleId}`, {
         method: "PUT",
         headers: {
             "Content-Type": "application/json",
@@ -668,7 +744,7 @@ export async function updateSchedule(
 }
 
 export async function pauseSchedule(scheduleId: string, reason?: string): Promise<ScheduleInfo> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/schedules/${scheduleId}/pause`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/schedules/${scheduleId}/pause`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -686,7 +762,7 @@ export async function pauseSchedule(scheduleId: string, reason?: string): Promis
 }
 
 export async function resumeSchedule(scheduleId: string, reason?: string): Promise<ScheduleInfo> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/schedules/${scheduleId}/resume`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/schedules/${scheduleId}/resume`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -704,7 +780,7 @@ export async function resumeSchedule(scheduleId: string, reason?: string): Promi
 }
 
 export async function deleteSchedule(scheduleId: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/schedules/${scheduleId}`, {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/schedules/${scheduleId}`, {
         method: "DELETE",
         headers: getAuthHeaders(),
     });
@@ -713,4 +789,90 @@ export async function deleteSchedule(scheduleId: string): Promise<void> {
         const errorText = await response.text();
         throw new Error(`Failed to delete schedule: ${response.statusText} - ${errorText}`);
     }
+}
+
+// =============================================================================
+// Task Progress Types
+// =============================================================================
+
+export interface TaskProgress {
+    task_id: string;
+    workflow_id: string;
+    status: "pending" | "running" | "completed" | "failed" | "cancelled";
+    progress_percent: number;
+    current_step: string;
+    total_steps: number;
+    completed_steps: number;
+    elapsed_time_ms: number;
+    estimated_remaining_ms?: number;
+    subtasks?: SubtaskProgress[];
+    tokens_used: number;
+    cost_usd: number;
+    current_agent?: string;
+    last_updated: string;
+}
+
+export interface SubtaskProgress {
+    id: string;
+    description: string;
+    status: "pending" | "running" | "completed" | "failed";
+    agent_id?: string;
+}
+
+// =============================================================================
+// Task Polling API Functions
+// =============================================================================
+
+/**
+ * Poll task progress - fallback for when SSE connection fails
+ */
+export async function pollTaskProgress(taskId: string): Promise<TaskProgress> {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/tasks/${taskId}/progress`, {
+        headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+        // If progress endpoint doesn't exist, fall back to basic task info
+        if (response.status === 404) {
+            const task = await getTask(taskId);
+            return {
+                task_id: taskId,
+                workflow_id: task.workflow_id || taskId,
+                status: task.status as TaskProgress["status"],
+                progress_percent: task.status === "completed" ? 100 : task.status === "running" ? 50 : 0,
+                current_step: task.status === "running" ? "Processing..." : task.status,
+                total_steps: 1,
+                completed_steps: task.status === "completed" ? 1 : 0,
+                elapsed_time_ms: 0,
+                tokens_used: task.total_token_usage?.total_tokens || 0,
+                cost_usd: task.total_token_usage?.cost_usd || 0,
+                last_updated: new Date().toISOString(),
+            };
+        }
+        throw new Error(`Failed to get task progress: ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
+/**
+ * Get task final output - useful when SSE missed the completion event
+ */
+export async function getTaskOutput(taskId: string): Promise<{
+    task_id: string;
+    output: string;
+    status: string;
+    tokens_used: number;
+    cost_usd: number;
+    completed_at?: string;
+}> {
+    const response = await fetch(`${getApiBaseUrl()}/api/v1/tasks/${taskId}/output`, {
+        headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to get task output: ${response.statusText}`);
+    }
+
+    return response.json();
 }

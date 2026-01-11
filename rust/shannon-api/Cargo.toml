@@ -1,0 +1,152 @@
+[package]
+name = "shannon-api"
+version = "0.1.0"
+edition = "2021"
+description = "Unified Rust API for Shannon AI platform - Gateway + LLM Service"
+authors = ["Shannon Team"]
+repository = "https://github.com/Prometheus-AGS/Shannon"
+license = "MIT"
+keywords = ["ai", "llm", "gateway", "api"]
+categories = ["api-bindings", "web-programming"]
+resolver = "2"
+
+[lib]
+name = "shannon_api"
+path = "src/lib.rs"
+
+[[bin]]
+name = "shannon-api"
+path = "src/main.rs"
+
+[features]
+default = ["gateway", "grpc"]
+gateway = ["dep:jsonwebtoken", "dep:argon2"]
+grpc = ["dep:tonic", "dep:tonic-prost", "dep:prost", "dep:prost-types"]
+# Cloud database mode - DISABLED due to SQLite conflict with embedded modes
+# database = ["dep:sqlx", "dep:pgvector"]
+usearch = ["dep:usearch"]
+# Embedded mode for Tauri desktop - uses SurrealDB with RocksDB backend
+# No orchestrator, Temporal, or external database required
+embedded = ["dep:durable-shannon", "dep:rusqlite", "usearch"]
+# Mobile embedded mode with SQLite - completely separate from cloud database
+# IMPORTANT: Never enable this with 'database' feature due to SQLite conflict
+embedded-mobile = ["dep:rusqlite", "dep:durable-shannon"]
+# Cloud mode with full infrastructure - uses Temporal via orchestrator
+# Temporarily uses grpc only until database conflict is resolved
+cloud = ["grpc"]
+
+[dependencies]
+# Web framework
+axum = { workspace = true }
+axum-extra = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tokio-util = { workspace = true }
+tokio-tungstenite = "0.28.0"
+
+# HTTP client for LLM APIs
+reqwest = { workspace = true }
+
+# MCP client (official Rust SDK)
+rmcp = { version = "0.12.0", features = [
+  "client",
+  "transport-child-process",
+], optional = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+bincode = { workspace = true }
+
+# Async utilities
+futures = { workspace = true }
+async-stream = { workspace = true }
+async-trait = { workspace = true }
+
+# Performance allocator
+mimalloc = { workspace = true }
+
+# Observability
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry_sdk = { workspace = true }
+opentelemetry-otlp = { workspace = true }
+tracing-opentelemetry = { workspace = true }
+
+# Cloud database (PostgreSQL) - only for non-embedded deployments
+# REMOVED due to SQLite native library conflict with rusqlite in embedded modes
+# For cloud deployments, use a separate cloud-specific configuration or workspace member
+# sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "postgres", "uuid", "chrono", "json", "macros", "migrate"], optional = true }
+# pgvector = { version = "0.4", features = ["sqlx"], optional = true }
+
+# Redis (sessions, rate limiting, idempotency)
+redis = { workspace = true }
+
+# gRPC (for orchestrator communication)
+tonic = { workspace = true, optional = true }
+tonic-prost = { workspace = true, optional = true }
+prost = { workspace = true, optional = true }
+prost-types = { workspace = true, optional = true }
+
+# Authentication (Gateway)
+jsonwebtoken = { workspace = true, optional = true }
+argon2 = { workspace = true, optional = true }
+
+# OpenAPI documentation
+utoipa = { workspace = true }
+utoipa-swagger-ui = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Utilities
+uuid = { workspace = true }
+chrono = { workspace = true }
+url = { workspace = true }
+bytes = { workspace = true }
+pin-project-lite = { workspace = true }
+parking_lot = { workspace = true }
+base64 = { workspace = true }
+rand = { workspace = true }
+
+# Encryption for API keys
+aes-gcm = "0.10"
+
+# Configuration
+config = { workspace = true }
+dotenvy = { workspace = true }
+clap = { workspace = true }
+
+# Rate limiting
+governor = { workspace = true }
+
+# Embedded database (for desktop/mobile mode)
+# surrealdb = { workspace = true, optional = true }
+
+# SQLite for mobile (lighter weight)
+rusqlite = { workspace = true, optional = true }
+usearch = { version = "2.14", optional = true }
+
+# Durable workflow engine (for embedded mode - no orchestrator needed)
+durable-shannon = { workspace = true, optional = true }
+
+[build-dependencies]
+tonic-prost-build = { workspace = true }
+protoc-bin-vendored = { workspace = true }
+
+[dev-dependencies]
+axum-test = { workspace = true }
+tokio-test = { workspace = true }
+tempfile = { workspace = true }
+serial_test = { workspace = true }
+
+
+# Use workspace lints
+[lints]
+workspace = true

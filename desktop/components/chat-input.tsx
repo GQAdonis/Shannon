@@ -8,7 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Send, Loader2, Sparkles, Pause, Play, Square } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { submitTask } from "@/lib/shannon/api";
+import { listApiKeys } from "@/lib/shannon/settings";
 import { cn } from "@/lib/utils";
+import { useServer } from "@/lib/server-context";
+import { toast } from "sonner";
 
 export type AgentSelection = "normal" | "deep_research";
 export type ResearchStrategy = "quick" | "standard" | "deep" | "academic";
@@ -33,13 +36,13 @@ interface ChatInputProps {
     onCancel?: () => void;
 }
 
-export function ChatInput({ 
-    sessionId, 
-    disabled, 
-    isTaskComplete, 
-    selectedAgent = "normal", 
-    initialResearchStrategy = "quick", 
-    onTaskCreated, 
+export function ChatInput({
+    sessionId,
+    disabled,
+    isTaskComplete,
+    selectedAgent = "normal",
+    initialResearchStrategy = "quick",
+    onTaskCreated,
     variant = "default",
     isTaskRunning = false,
     isPaused = false,
@@ -55,7 +58,8 @@ export function ChatInput({
     const [error, setError] = useState<string | null>(null);
     const [researchStrategy, setResearchStrategy] = useState<ResearchStrategy>(initialResearchStrategy);
     const router = useRouter();
-    
+    const { isReady: isServerReady, status: serverStatus } = useServer();
+
     // Use ref for composition state to avoid race conditions with state updates
     // This is more reliable than state for IME handling
     const isComposingRef = useRef(false);
@@ -68,6 +72,11 @@ export function ChatInput({
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        if (!isServerReady) {
+            setError("Server is not ready");
+            return;
+        }
+
         if (!query.trim()) {
             return;
         }
@@ -76,19 +85,35 @@ export function ChatInput({
         setError(null);
 
         try {
+            // Validate API keys are configured before submission
+            const apiKeys = await listApiKeys();
+            const hasAnyKey = apiKeys.some(key => key.is_configured);
+
+            if (!hasAnyKey) {
+                setIsSubmitting(false);
+                toast.error("No API keys configured", {
+                    description: "Please configure at least one LLM provider API key in Settings",
+                    action: {
+                        label: "Go to Settings",
+                        onClick: () => router.push("/settings/api-keys")
+                    },
+                    duration: 6000,
+                });
+                return;
+            }
+
             const context: Record<string, unknown> = {};
-            let research_strategy: "deep" | "academic" | "quick" | "standard" | undefined;
 
             if (selectedAgent === "deep_research") {
                 context.force_research = true;
-                research_strategy = researchStrategy;
+                context.research_strategy = researchStrategy;
             }
 
             const response = await submitTask({
-                query: query.trim(),
+                prompt: query.trim(),
                 session_id: sessionId,
-                context: Object.keys(context).length ? context : undefined,
-                research_strategy,
+                task_type: selectedAgent === "deep_research" ? "research" : "chat",
+                metadata: Object.keys(context).length ? context : undefined,
             });
 
             setQuery("");
@@ -106,7 +131,24 @@ export function ChatInput({
         }
     };
 
-    const isInputDisabled = disabled;
+    const isInputDisabled = disabled || !isServerReady;
+
+    // Get appropriate placeholder text based on server status
+    const getPlaceholderText = () => {
+        if (!isServerReady) {
+            if (serverStatus === 'starting' || serverStatus === 'initializing') {
+                return "Server starting...";
+            }
+            if (serverStatus === 'failed') {
+                return "Server unavailable";
+            }
+            return "Waiting for server...";
+        }
+        if (disabled) {
+            return "Waiting for task to complete...";
+        }
+        return "Ask a question...";
+    };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         const nativeEvent = e.nativeEvent as { isComposing?: boolean; keyCode?: number } | undefined;
@@ -182,10 +224,10 @@ export function ChatInput({
                                 </Select>
                             </div>
                         )}
-                        
+
                         <div className="relative">
                             <Textarea
-                                placeholder="Ask a question..."
+                                placeholder={getPlaceholderText()}
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
                                 disabled={isInputDisabled || isSubmitting}
@@ -268,7 +310,7 @@ export function ChatInput({
             )}
             <div className="flex gap-2 items-end">
                 <Textarea
-                    placeholder={isInputDisabled ? "Waiting for task to complete..." : "Ask a question..."}
+                    placeholder={getPlaceholderText()}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     disabled={isInputDisabled || isSubmitting}
