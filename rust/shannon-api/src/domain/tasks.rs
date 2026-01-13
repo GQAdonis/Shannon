@@ -85,7 +85,7 @@ pub struct TaskContext {
     pub enable_citations: bool,
 
     // ReAct configuration
-    /// Maximum ReAct loop iterations
+    /// Maximum `ReAct` loop iterations
     #[serde(skip_serializing_if = "Option::is_none")]
     pub react_max_iterations: Option<u32>,
 
@@ -199,8 +199,7 @@ impl TaskContext {
         if let Some(ref tier) = self.model_tier {
             if !["small", "medium", "large"].contains(&tier.as_str()) {
                 return Err(format!(
-                    "Invalid model_tier: {}. Must be small, medium, or large",
-                    tier
+                    "Invalid model_tier: {tier}. Must be small, medium, or large"
                 ));
             }
         }
@@ -209,8 +208,7 @@ impl TaskContext {
         if let Some(ref strategy) = self.research_strategy {
             if !["quick", "standard", "deep", "academic"].contains(&strategy.as_str()) {
                 return Err(format!(
-                    "Invalid research_strategy: {}. Must be quick, standard, deep, or academic",
-                    strategy
+                    "Invalid research_strategy: {strategy}. Must be quick, standard, deep, or academic"
                 ));
             }
         }
@@ -219,8 +217,7 @@ impl TaskContext {
         if let Some(max_agents) = self.max_concurrent_agents {
             if !(1..=20).contains(&max_agents) {
                 return Err(format!(
-                    "max_concurrent_agents must be between 1 and 20, got {}",
-                    max_agents
+                    "max_concurrent_agents must be between 1 and 20, got {max_agents}"
                 ));
             }
         }
@@ -229,8 +226,7 @@ impl TaskContext {
         if let Some(max_iter) = self.iterative_max_iterations {
             if !(1..=5).contains(&max_iter) {
                 return Err(format!(
-                    "iterative_max_iterations must be between 1 and 5, got {}",
-                    max_iter
+                    "iterative_max_iterations must be between 1 and 5, got {max_iter}"
                 ));
             }
         }
@@ -239,8 +235,7 @@ impl TaskContext {
         if let Some(ratio) = self.compression_trigger_ratio {
             if !(0.0..=1.0).contains(&ratio) {
                 return Err(format!(
-                    "compression_trigger_ratio must be between 0.0 and 1.0, got {}",
-                    ratio
+                    "compression_trigger_ratio must be between 0.0 and 1.0, got {ratio}"
                 ));
             }
         }
@@ -248,8 +243,7 @@ impl TaskContext {
         if let Some(ratio) = self.compression_target_ratio {
             if !(0.0..=1.0).contains(&ratio) {
                 return Err(format!(
-                    "compression_target_ratio must be between 0.0 and 1.0, got {}",
-                    ratio
+                    "compression_target_ratio must be between 0.0 and 1.0, got {ratio}"
                 ));
             }
         }

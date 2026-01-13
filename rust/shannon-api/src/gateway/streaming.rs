@@ -114,28 +114,25 @@ pub async fn stream_task_events(
         // Check if task exists
         if let Some(ref redis) = state.redis {
             let mut redis = redis.clone();
-            let key = format!("task:{}", task_id);
+            let key = format!("task:{task_id}");
             
-            match redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await {
-                Ok(Some(_)) => {
-                    // Task exists, start streaming
-                    yield Ok::<_, Infallible>(Event::default()
-                        .event("connected")
-                        .data(serde_json::json!({
-                            "task_id": task_id,
-                            "message": "Connected to task stream"
-                        }).to_string()));
-                }
-                _ => {
-                    // Task not found
-                    yield Ok(Event::default()
-                        .event("error")
-                        .data(serde_json::json!({
-                            "error": "not_found",
-                            "message": format!("Task {} not found", task_id)
-                        }).to_string()));
-                    return;
-                }
+            if let Ok(Some(_)) = redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await {
+                // Task exists, start streaming
+                yield Ok::<_, Infallible>(Event::default()
+                    .event("connected")
+                    .data(serde_json::json!({
+                        "task_id": task_id,
+                        "message": "Connected to task stream"
+                    }).to_string()));
+            } else {
+                // Task not found
+                yield Ok(Event::default()
+                    .event("error")
+                    .data(serde_json::json!({
+                        "error": "not_found",
+                        "message": format!("Task {} not found", task_id)
+                    }).to_string()));
+                return;
             }
         } else {
             // No Redis, just acknowledge connection
@@ -154,7 +151,7 @@ pub async fn stream_task_events(
 
             if let Some(ref redis) = state.redis {
                 let mut redis = redis.clone();
-                let key = format!("task:{}", task_id);
+                let key = format!("task:{task_id}");
                 
                 match redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await {
                     Ok(Some(data)) => {
@@ -299,46 +296,43 @@ async fn handle_websocket(mut socket: WebSocket, state: AppState, task_id: Strin
                 
                 if let Some(ref redis) = state.redis {
                     let mut redis = redis.clone();
-                    let key = format!("task:{}", task_id);
+                    let key = format!("task:{task_id}");
                     
-                    match redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await {
-                        Ok(Some(data)) => {
-                            if let Ok(task) = serde_json::from_str::<serde_json::Value>(&data) {
-                                let status = task["status"].as_str().unwrap_or("pending");
-                                
-                                let update = serde_json::json!({
-                                    "type": "progress",
+                    if let Ok(Some(data)) = redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await {
+                        if let Ok(task) = serde_json::from_str::<serde_json::Value>(&data) {
+                            let status = task["status"].as_str().unwrap_or("pending");
+                            
+                            let update = serde_json::json!({
+                                "type": "progress",
+                                "task_id": task_id,
+                                "status": status,
+                                "progress": task["progress"],
+                                "timestamp": chrono::Utc::now().to_rfc3339()
+                            });
+                            
+                            if socket.send(Message::Text(update.to_string().into())).await.is_err() {
+                                break;
+                            }
+                            
+                            if status == "completed" || status == "failed" || status == "cancelled" {
+                                let done = serde_json::json!({
+                                    "type": "done",
                                     "task_id": task_id,
                                     "status": status,
-                                    "progress": task["progress"],
-                                    "timestamp": chrono::Utc::now().to_rfc3339()
+                                    "output": task["output"],
+                                    "error": task["error"]
                                 });
-                                
-                                if socket.send(Message::Text(update.to_string().into())).await.is_err() {
-                                    break;
-                                }
-                                
-                                if status == "completed" || status == "failed" || status == "cancelled" {
-                                    let done = serde_json::json!({
-                                        "type": "done",
-                                        "task_id": task_id,
-                                        "status": status,
-                                        "output": task["output"],
-                                        "error": task["error"]
-                                    });
-                                    let _ = socket.send(Message::Text(done.to_string().into())).await;
-                                    break;
-                                }
+                                let _ = socket.send(Message::Text(done.to_string().into())).await;
+                                break;
                             }
                         }
-                        _ => {
-                            let error = serde_json::json!({
-                                "type": "error",
-                                "message": "Task not found"
-                            });
-                            let _ = socket.send(Message::Text(error.to_string().into())).await;
-                            break;
-                        }
+                    } else {
+                        let error = serde_json::json!({
+                            "type": "error",
+                            "message": "Task not found"
+                        });
+                        let _ = socket.send(Message::Text(error.to_string().into())).await;
+                        break;
                     }
                 }
                 

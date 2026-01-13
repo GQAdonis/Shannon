@@ -97,7 +97,7 @@ impl AnthropicDriver {
                 let function = tool.get("function")?;
                 Some(serde_json::json!({
                     "name": function.get("name")?,
-                    "description": function.get("description").unwrap_or(&serde_json::Value::String("".to_string())),
+                    "description": function.get("description").unwrap_or(&serde_json::Value::String(String::new())),
                     "input_schema": function.get("parameters").unwrap_or(&serde_json::json!({"type": "object", "properties": {}}))
                 }))
             })
@@ -148,7 +148,7 @@ impl LlmDriver for AnthropicDriver {
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().await.unwrap_or_default();
-            anyhow::bail!("Anthropic API error ({}): {}", status, text);
+            anyhow::bail!("Anthropic API error ({status}): {text}");
         }
 
         let stream = response.bytes_stream();
@@ -164,7 +164,7 @@ impl LlmDriver for AnthropicDriver {
                 let chunk = match chunk_result {
                     Ok(c) => c,
                     Err(e) => {
-                        yield Err(anyhow::anyhow!("Stream error: {}", e));
+                        yield Err(anyhow::anyhow!("Stream error: {e}"));
                         continue;
                     }
                 };
@@ -172,7 +172,7 @@ impl LlmDriver for AnthropicDriver {
                 let chunk_str = match std::str::from_utf8(&chunk) {
                     Ok(s) => s,
                     Err(e) => {
-                        yield Err(anyhow::anyhow!("UTF-8 error: {}", e));
+                        yield Err(anyhow::anyhow!("UTF-8 error: {e}"));
                         continue;
                     }
                 };

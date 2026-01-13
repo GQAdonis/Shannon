@@ -1,0 +1,8 @@
+{{#if context}}
+Context:
+{{context}}
+
+{{/if}}
+Topic for Debate: {{query}}
+
+Please analyze this topic from {{#if perspectives}}{{perspectives}}{{else}}multiple{{/if}} different perspectives. Present each viewpoint fairly, then synthesize the insights.

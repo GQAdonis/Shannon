@@ -44,7 +44,7 @@ pub enum AdvancedEvent {
         workflow_id: String,
         /// Agent ID performing reflection.
         agent_id: String,
-        /// Reflection type (e.g., "self_critique", "plan_review").
+        /// Reflection type (e.g., "`self_critique`", "`plan_review`").
         reflection_type: String,
         /// Reflection insights or findings.
         #[serde(skip_serializing_if = "Option::is_none")]

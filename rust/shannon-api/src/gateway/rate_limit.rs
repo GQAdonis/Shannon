@@ -100,7 +100,7 @@ pub async fn global_rate_limit_middleware(
     });
 
     match limiter.check() {
-        Ok(_) => Ok(next.run(req).await),
+        Ok(()) => Ok(next.run(req).await),
         Err(not_until) => {
             // Use the earliest_possible method to get estimated wait time
             let wait_duration = not_until.wait_time_from(governor::clock::Clock::now(&governor::clock::DefaultClock::default()));
@@ -122,9 +122,7 @@ pub async fn user_rate_limit_middleware(
     // Get user ID from request extensions (set by auth middleware)
     let user_id = req
         .extensions()
-        .get::<super::auth::AuthenticatedUser>()
-        .map(|u| u.user_id.clone())
-        .unwrap_or_else(|| "anonymous".to_string());
+        .get::<super::auth::AuthenticatedUser>().map_or_else(|| "anonymous".to_string(), |u| u.user_id.clone());
 
     // Get or create rate limiter for this user
     static USER_LIMITERS: std::sync::OnceLock<UserRateLimiters> = std::sync::OnceLock::new();
@@ -139,12 +137,12 @@ pub async fn user_rate_limit_middleware(
     let limiter = limiters.get_or_create(&user_id);
 
     match limiter.check() {
-        Ok(_) => Ok(next.run(req).await),
+        Ok(()) => Ok(next.run(req).await),
         Err(not_until) => {
             let wait_duration = not_until.wait_time_from(governor::clock::Clock::now(&governor::clock::DefaultClock::default()));
             Err(RateLimitError {
                 error: "rate_limit_exceeded".to_string(),
-                message: format!("Rate limit exceeded for user {}. Please try again later.", user_id),
+                message: format!("Rate limit exceeded for user {user_id}. Please try again later."),
                 retry_after_secs: Some(wait_duration.as_secs()),
             })
         }
@@ -179,7 +177,7 @@ pub async fn check_rate_limit_redis(
     if count as u32 > limit {
         return Err(RateLimitError {
             error: "rate_limit_exceeded".to_string(),
-            message: format!("Rate limit exceeded. Maximum {} requests per {} seconds.", limit, window_secs),
+            message: format!("Rate limit exceeded. Maximum {limit} requests per {window_secs} seconds."),
             retry_after_secs: Some(window_secs),
         });
     }

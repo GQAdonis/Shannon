@@ -9,9 +9,9 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use usearch::{Index, IndexOptions, MetricKind, ScalarKind};
 
-/// Hybrid Backend: SQLite + USearch
-/// - SQLite: Stores metadata, sessions, runs, memories (Relational)
-/// - USearch: Stores embedding vectors (Vector Index)
+/// Hybrid Backend: `SQLite` + `USearch`
+/// - `SQLite`: Stores metadata, sessions, runs, memories (Relational)
+/// - `USearch`: Stores embedding vectors (Vector Index)
 #[derive(Clone)]
 pub struct HybridBackend {
     db_path: PathBuf,
@@ -241,7 +241,7 @@ impl HybridBackend {
                     workflow_id: row.get(0)?,
                     is_paused: row.get(1)?,
                     is_cancelled: row.get(2)?,
-                    paused_at: row.get::<_, Option<String>>(3)?.map(|s| parse_datetime(s)),
+                    paused_at: row.get::<_, Option<String>>(3)?.map(parse_datetime),
                     pause_reason: row.get(4)?,
                     paused_by: row.get(5)?,
                     cancel_reason: row.get(6)?,
@@ -412,12 +412,12 @@ impl HybridBackend {
             let mut bind_idx = 2;
             
             if status_filter.is_some() {
-                sql.push_str(&format!(" AND status = ?{}", bind_idx));
+                sql.push_str(&format!(" AND status = ?{bind_idx}"));
                 bind_idx += 1;
             }
             
             if session_filter.is_some() {
-                sql.push_str(&format!(" AND session_id = ?{}", bind_idx));
+                sql.push_str(&format!(" AND session_id = ?{bind_idx}"));
             }
             
             let mut stmt = conn.prepare(&sql)?;
@@ -758,7 +758,7 @@ impl MemoryRepository for HybridBackend {
                  let guard = sqlite.lock().unwrap();
                  let conn = guard.as_ref().ok_or_else(|| anyhow::anyhow!("SQLite not initialized"))?;
                  
-                 let metadata_str = memory_clone.metadata.as_ref().map(|m| m.to_string());
+                 let metadata_str = memory_clone.metadata.as_ref().map(std::string::ToString::to_string);
                  
                  conn.execute(
                      "INSERT OR REPLACE INTO memories (id, conversation_id, vector_id, role, content, metadata, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -813,10 +813,8 @@ impl MemoryRepository for HybridBackend {
             })?;
             
             let mut memories = Vec::new();
-            for r in rows {
-                if let Ok(m) = r {
-                    memories.push(m);
-                }
+            for m in rows.flatten() {
+                memories.push(m);
             }
             Ok(memories)
         }).await?
@@ -893,7 +891,7 @@ impl crate::database::repository::SessionRepository for HybridBackend {
             let guard = sqlite.lock().unwrap();
             let conn = guard.as_ref().ok_or_else(|| anyhow::anyhow!("SQLite not initialized"))?;
             
-            let context_json = session_clone.context.as_ref().map(|c| c.to_string());
+            let context_json = session_clone.context.as_ref().map(std::string::ToString::to_string);
             
             conn.execute(
                 "INSERT INTO sessions
@@ -959,7 +957,7 @@ impl crate::database::repository::SessionRepository for HybridBackend {
             let guard = sqlite.lock().unwrap();
             let conn = guard.as_ref().ok_or_else(|| anyhow::anyhow!("SQLite not initialized"))?;
             
-            let context_json = session_clone.context.as_ref().map(|c| c.to_string());
+            let context_json = session_clone.context.as_ref().map(std::string::ToString::to_string);
             
             conn.execute(
                 "UPDATE sessions SET
@@ -1015,10 +1013,8 @@ impl crate::database::repository::SessionRepository for HybridBackend {
             })?;
             
             let mut sessions = Vec::new();
-            for row in rows {
-                if let Ok(session) = row {
-                    sessions.push(session);
-                }
+            for session in rows.flatten() {
+                sessions.push(session);
             }
             Ok(sessions)
         }).await?
@@ -1043,7 +1039,5 @@ fn format_datetime(value: DateTime<Utc>) -> String {
 }
 
 fn parse_datetime(value: String) -> DateTime<Utc> {
-    DateTime::parse_from_rfc3339(&value)
-        .map(|dt| dt.with_timezone(&Utc))
-        .unwrap_or_else(|_| Utc::now())
+    DateTime::parse_from_rfc3339(&value).map_or_else(|_| Utc::now(), |dt| dt.with_timezone(&Utc))
 }

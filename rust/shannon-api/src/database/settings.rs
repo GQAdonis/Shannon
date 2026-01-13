@@ -104,7 +104,7 @@ pub trait ApiKeyRepository: Send + Sync {
     /// Delete an API key for a provider.
     async fn delete_api_key(&self, user_id: &str, provider: &str) -> Result<bool>;
 
-    /// Mark an API key as used (updates last_used_at).
+    /// Mark an API key as used (updates `last_used_at`).
     async fn mark_key_used(&self, user_id: &str, provider: &str) -> Result<()>;
 }
 
@@ -278,7 +278,7 @@ impl ApiKeyRepository for HybridBackend {
                     is_active: row.get(3)?,
                     created_at: parse_datetime(row.get::<_, String>(4)?),
                     updated_at: parse_datetime(row.get::<_, String>(5)?),
-                    last_used_at: row.get::<_, Option<String>>(6)?.map(|s| parse_datetime(s)),
+                    last_used_at: row.get::<_, Option<String>>(6)?.map(parse_datetime),
                 }))
             } else {
                 Ok(None)
@@ -319,8 +319,8 @@ impl ApiKeyRepository for HybridBackend {
                     is_configured: true,
                     masked_key,
                     is_active: row.get(2)?,
-                    created_at: row.get::<_, Option<String>>(3)?.map(|s| parse_datetime(s)),
-                    last_used_at: row.get::<_, Option<String>>(4)?.map(|s| parse_datetime(s)),
+                    created_at: row.get::<_, Option<String>>(3)?.map(parse_datetime),
+                    last_used_at: row.get::<_, Option<String>>(4)?.map(parse_datetime),
                 })
             })?;
 
@@ -415,7 +415,5 @@ impl ApiKeyRepository for HybridBackend {
 
 /// Parse datetime from RFC3339 string.
 fn parse_datetime(value: String) -> DateTime<Utc> {
-    DateTime::parse_from_rfc3339(&value)
-        .map(|dt| dt.with_timezone(&Utc))
-        .unwrap_or_else(|_| Utc::now())
+    DateTime::parse_from_rfc3339(&value).map_or_else(|_| Utc::now(), |dt| dt.with_timezone(&Utc))
 }

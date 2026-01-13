@@ -282,8 +282,7 @@ impl RecoveryManager {
                 "Circuit breaker rejecting request"
             );
             return Err(anyhow::anyhow!(
-                "Circuit breaker open for {}",
-                operation_name
+                "Circuit breaker open for {operation_name}"
             ));
         }
 

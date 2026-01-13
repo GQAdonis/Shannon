@@ -13,7 +13,6 @@
 //! assert_eq!(pattern, "chain_of_thought");
 //! ```
 
-use anyhow::Result;
 
 /// Complexity score range (0.0-1.0).
 #[derive(Debug, Clone, Copy)]

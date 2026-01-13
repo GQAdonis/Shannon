@@ -42,16 +42,18 @@ impl std::fmt::Display for TaskState {
 /// Research strategy for task execution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum Strategy {
     /// Simple direct execution.
     Simple,
     /// Standard single-agent execution.
+    #[default]
     Standard,
     /// Complex multi-agent DAG execution.
     Complex,
     /// Chain of Thought reasoning.
     ChainOfThought,
-    /// ReAct reasoning and acting.
+    /// `ReAct` reasoning and acting.
     React,
     /// Tree of Thoughts exploration.
     TreeOfThoughts,
@@ -61,11 +63,6 @@ pub enum Strategy {
     Scientific,
 }
 
-impl Default for Strategy {
-    fn default() -> Self {
-        Self::Standard
-    }
-}
 
 impl std::fmt::Display for Strategy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -79,7 +76,7 @@ impl std::fmt::Display for Strategy {
             Self::Research => "research",
             Self::Scientific => "scientific",
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 

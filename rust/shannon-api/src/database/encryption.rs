@@ -1,6 +1,6 @@
 //! API key encryption using AES-256-GCM.
 //!
-//! Provides secure encryption and decryption for storing API keys in SQLite.
+//! Provides secure encryption and decryption for storing API keys in `SQLite`.
 //! Uses AES-256-GCM AEAD cipher with random nonces for each encryption operation.
 
 use aes_gcm::{
@@ -57,7 +57,7 @@ impl KeyManager {
         Ok(Self { cipher })
     }
 
-    /// Create a KeyManager using the default key path.
+    /// Create a `KeyManager` using the default key path.
     ///
     /// Uses `~/.shannon/encryption.key` as the default location.
     ///
@@ -97,7 +97,7 @@ impl KeyManager {
         let ciphertext = self
             .cipher
             .encrypt(nonce, plaintext.as_bytes())
-            .map_err(|e| anyhow::anyhow!("Encryption failed: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Encryption failed: {e}"))?;
 
         // Combine nonce + ciphertext
         let mut result = nonce_bytes.to_vec();
@@ -140,7 +140,7 @@ impl KeyManager {
         let plaintext = self
             .cipher
             .decrypt(nonce, ciphertext)
-            .map_err(|e| anyhow::anyhow!("Decryption failed: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Decryption failed: {e}"))?;
 
         String::from_utf8(plaintext).context("Invalid UTF-8 in decrypted data")
     }

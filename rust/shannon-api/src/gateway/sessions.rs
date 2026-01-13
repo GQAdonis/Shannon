@@ -225,38 +225,31 @@ pub async fn get_session(
 ) -> impl IntoResponse {
     if let Some(ref redis) = state.redis {
         let mut redis = redis.clone();
-        let key = format!("session:{}", id);
+        let key = format!("session:{id}");
 
-        match redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await {
-            Ok(Some(data)) => match serde_json::from_str::<serde_json::Value>(&data) {
-                Ok(session) => {
-                    let response = SessionResponse {
-                        id: session["id"].as_str().unwrap_or(&id).to_string(),
-                        name: session["name"].as_str().map(String::from),
-                        created_at: session["created_at"]
-                            .as_str()
-                            .unwrap_or_default()
-                            .to_string(),
-                        updated_at: session["updated_at"]
-                            .as_str()
-                            .unwrap_or_default()
-                            .to_string(),
-                        message_count: session["messages"]
-                            .as_array()
-                            .map(|m| m.len() as u32)
-                            .unwrap_or(0),
-                        model: session["model"].as_str().map(String::from),
-                        metadata: session.get("metadata").cloned(),
-                    };
-                    return (
-                        StatusCode::OK,
-                        Json(serde_json::to_value(response).unwrap()),
-                    );
-                }
-                Err(_) => {}
-            },
-            _ => {}
-        }
+        if let Ok(Some(data)) = redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await { if let Ok(session) = serde_json::from_str::<serde_json::Value>(&data) {
+            let response = SessionResponse {
+                id: session["id"].as_str().unwrap_or(&id).to_string(),
+                name: session["name"].as_str().map(String::from),
+                created_at: session["created_at"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string(),
+                updated_at: session["updated_at"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string(),
+                message_count: session["messages"]
+                    .as_array()
+                    .map_or(0, |m| m.len() as u32),
+                model: session["model"].as_str().map(String::from),
+                metadata: session.get("metadata").cloned(),
+            };
+            return (
+                StatusCode::OK,
+                Json(serde_json::to_value(response).unwrap()),
+            );
+        } }
     }
 
     (
@@ -346,7 +339,7 @@ pub async fn delete_session(
 ) -> impl IntoResponse {
     if let Some(ref redis) = state.redis {
         let mut redis = redis.clone();
-        let key = format!("session:{}", id);
+        let key = format!("session:{id}");
 
         match redis::AsyncCommands::del::<_, i32>(&mut redis, &key).await {
             Ok(count) if count > 0 => {
@@ -389,16 +382,13 @@ pub async fn get_session_messages(
 ) -> impl IntoResponse {
     if let Some(ref redis) = state.redis {
         let mut redis = redis.clone();
-        let key = format!("session:{}", id);
+        let key = format!("session:{id}");
 
-        match redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await {
-            Ok(Some(data)) => {
-                if let Ok(session) = serde_json::from_str::<serde_json::Value>(&data) {
-                    let messages = session["messages"].clone();
-                    return (StatusCode::OK, Json(messages));
-                }
+        if let Ok(Some(data)) = redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await {
+            if let Ok(session) = serde_json::from_str::<serde_json::Value>(&data) {
+                let messages = session["messages"].clone();
+                return (StatusCode::OK, Json(messages));
             }
-            _ => {}
         }
     }
 
@@ -428,45 +418,42 @@ pub async fn add_session_message(
 ) -> impl IntoResponse {
     if let Some(ref redis) = state.redis {
         let mut redis = redis.clone();
-        let key = format!("session:{}", id);
+        let key = format!("session:{id}");
 
         // Get existing session
-        match redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await {
-            Ok(Some(data)) => {
-                if let Ok(mut session) = serde_json::from_str::<serde_json::Value>(&data) {
-                    let message = SessionMessage {
-                        id: Uuid::new_v4().to_string(),
-                        role: req.role,
-                        content: req.content,
-                        created_at: chrono::Utc::now().to_rfc3339(),
-                        tool_calls: req.tool_calls,
-                    };
+        if let Ok(Some(data)) = redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await {
+            if let Ok(mut session) = serde_json::from_str::<serde_json::Value>(&data) {
+                let message = SessionMessage {
+                    id: Uuid::new_v4().to_string(),
+                    role: req.role,
+                    content: req.content,
+                    created_at: chrono::Utc::now().to_rfc3339(),
+                    tool_calls: req.tool_calls,
+                };
 
-                    // Add message to array
-                    if let Some(messages) = session["messages"].as_array_mut() {
-                        messages.push(serde_json::to_value(&message).unwrap());
-                    }
-
-                    // Update timestamp
-                    session["updated_at"] =
-                        serde_json::Value::String(chrono::Utc::now().to_rfc3339());
-
-                    // Save back
-                    let _ = redis::AsyncCommands::set_ex::<_, _, ()>(
-                        &mut redis,
-                        &key,
-                        session.to_string(),
-                        86400 * 7,
-                    )
-                    .await;
-
-                    return (
-                        StatusCode::CREATED,
-                        Json(serde_json::to_value(message).unwrap()),
-                    );
+                // Add message to array
+                if let Some(messages) = session["messages"].as_array_mut() {
+                    messages.push(serde_json::to_value(&message).unwrap());
                 }
+
+                // Update timestamp
+                session["updated_at"] =
+                    serde_json::Value::String(chrono::Utc::now().to_rfc3339());
+
+                // Save back
+                let _ = redis::AsyncCommands::set_ex::<_, _, ()>(
+                    &mut redis,
+                    &key,
+                    session.to_string(),
+                    86400 * 7,
+                )
+                .await;
+
+                return (
+                    StatusCode::CREATED,
+                    Json(serde_json::to_value(message).unwrap()),
+                );
             }
-            _ => {}
         }
     }
 

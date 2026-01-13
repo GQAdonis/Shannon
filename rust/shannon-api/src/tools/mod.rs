@@ -81,12 +81,12 @@ impl ToolRegistry {
         tools.values().map(|t| t.definition()).collect()
     }
 
-    /// Get tool schemas in OpenAI format.
+    /// Get tool schemas in `OpenAI` format.
     pub fn get_tool_schemas(&self) -> Vec<serde_json::Value> {
         self.get_definitions()
             .iter()
             .filter(|d| d.enabled)
-            .map(|d| d.to_openai_schema())
+            .map(super::domain::tools::ToolDefinition::to_openai_schema)
             .collect()
     }
 
@@ -94,7 +94,7 @@ impl ToolRegistry {
     pub async fn execute(&self, name: &str, arguments: &str) -> anyhow::Result<String> {
         let tool = self
             .get(name)
-            .ok_or_else(|| anyhow::anyhow!("Tool not found: {}", name))?;
+            .ok_or_else(|| anyhow::anyhow!("Tool not found: {name}"))?;
 
         tool.execute(arguments).await
     }
@@ -138,8 +138,7 @@ impl Tool for CalculatorTool {
         // Simple expression evaluation using meval would go here
         // For now, we'll return a placeholder
         let result = format!(
-            "Evaluated: {} (calculator implementation pending)",
-            expression
+            "Evaluated: {expression} (calculator implementation pending)"
         );
         Ok(result)
     }

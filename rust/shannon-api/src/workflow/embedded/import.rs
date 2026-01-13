@@ -14,7 +14,6 @@
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use serde_json::Value;
 
 use crate::database::workflow_store::{WorkflowStatus, WorkflowStore};
 
@@ -67,7 +66,7 @@ impl ImportManager {
         // Update status if not pending
         if workflow.status != WorkflowStatus::Pending {
             self.workflow_store
-                .update_status(&workflow.workflow_id, workflow.status.clone())
+                .update_status(&workflow.workflow_id, workflow.status)
                 .await?;
         }
 

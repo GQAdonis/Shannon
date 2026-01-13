@@ -1,4 +1,4 @@
-//! Chain of Thought (CoT) cognitive pattern.
+//! Chain of Thought (`CoT`) cognitive pattern.
 //!
 //! Implements step-by-step reasoning where the LLM explicitly articulates
 //! its thought process before arriving at a final answer.
@@ -109,7 +109,7 @@ impl Default for ChainOfThought {
 
 #[async_trait]
 impl CognitivePattern for ChainOfThought {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "chain_of_thought"
     }
 

@@ -35,7 +35,7 @@ impl ToolDefinition {
         }
     }
 
-    /// Convert to OpenAI function schema format.
+    /// Convert to `OpenAI` function schema format.
     pub fn to_openai_schema(&self) -> serde_json::Value {
         serde_json::json!({
             "type": "function",
@@ -77,7 +77,7 @@ impl ToolResult {
         let error_str = error.into();
         Self {
             success: false,
-            content: format!("Error: {}", error_str),
+            content: format!("Error: {error_str}"),
             error: Some(error_str),
             execution_time_ms,
         }

@@ -81,7 +81,7 @@ async fn list_settings(
     #[cfg(feature = "embedded")]
     let db = state.database.as_ref().ok_or_else(|| {
         tracing::error!("Database not available");
-        ()
+        ();
     });
 
     #[cfg(feature = "embedded")]
@@ -466,7 +466,7 @@ async fn set_api_key(
                 Json(SetApiKeyResponse {
                     provider: provider.clone(),
                     masked_key,
-                    message: format!("API key for '{}' saved successfully", provider),
+                    message: format!("API key for '{provider}' saved successfully"),
                 }),
             )
                 .into_response()

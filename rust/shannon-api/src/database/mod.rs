@@ -2,9 +2,9 @@
 //!
 //! This module provides a unified interface for database operations that
 //! abstracts over different backend implementations:
-//! - **SurrealDB**: Multi-model database for embedded desktop mode
-//! - **PostgreSQL**: Relational database for cloud mode
-//! - **SQLite**: Lightweight database for mobile mode
+//! - **`SurrealDB`**: Multi-model database for embedded desktop mode
+//! - **`PostgreSQL`**: Relational database for cloud mode
+//! - **`SQLite`**: Lightweight database for mobile mode
 //!
 //! The abstraction allows Shannon to run in both embedded (Tauri) and cloud
 //! (Docker/K8s) environments with the same application logic.

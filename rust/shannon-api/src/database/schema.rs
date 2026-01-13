@@ -1,11 +1,11 @@
 //! Database schema definitions.
 //!
-//! Contains SurrealDB schema (SurrealQL) and common types for all backends.
+//! Contains `SurrealDB` schema (`SurrealQL`) and common types for all backends.
 
-/// SurrealDB schema for Shannon.
+/// `SurrealDB` schema for Shannon.
 ///
-/// This schema is used for embedded/desktop mode with SurrealDB.
-pub const SURREALDB_SCHEMA: &str = r#"
+/// This schema is used for embedded/desktop mode with `SurrealDB`.
+pub const SURREALDB_SCHEMA: &str = r"
 -- Runs table
 DEFINE TABLE runs SCHEMAFULL;
 DEFINE FIELD id ON runs TYPE string;
@@ -75,10 +75,10 @@ DEFINE FIELD last_sync_at ON sync_state TYPE datetime;
 DEFINE FIELD state_vector ON sync_state TYPE bytes;
 DEFINE FIELD created_at ON sync_state TYPE datetime DEFAULT time::now();
 DEFINE INDEX idx_device ON sync_state COLUMNS device_id UNIQUE;
-"#;
+";
 
-/// SQLite schema for mobile mode.
-pub const SQLITE_SCHEMA: &str = r#"
+/// `SQLite` schema for mobile mode.
+pub const SQLITE_SCHEMA: &str = r"
 -- Runs table
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY,
@@ -152,4 +152,4 @@ CREATE TABLE IF NOT EXISTS sync_state (
     state_vector BLOB,
     created_at TEXT DEFAULT (datetime('now'))
 );
-"#;
+";

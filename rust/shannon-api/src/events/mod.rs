@@ -23,7 +23,7 @@ pub enum NormalizedEvent {
         provider: Option<String>,
     },
 
-    /// Partial message content (streaming delta) (T115 - LLM_PARTIAL).
+    /// Partial message content (streaming delta) (T115 - `LLM_PARTIAL`).
     MessageDelta {
         /// The content delta.
         content: String,
@@ -32,7 +32,7 @@ pub enum NormalizedEvent {
         role: Option<String>,
     },
 
-    /// Message completed (T116 - LLM_OUTPUT).
+    /// Message completed (T116 - `LLM_OUTPUT`).
     MessageComplete {
         /// Full message content.
         content: String,
@@ -59,7 +59,7 @@ pub enum NormalizedEvent {
         arguments: Option<String>,
     },
 
-    /// Tool call completed (T117 - TOOL_INVOKED).
+    /// Tool call completed (T117 - `TOOL_INVOKED`).
     ToolCallComplete {
         /// Tool call ID.
         id: String,
@@ -69,7 +69,7 @@ pub enum NormalizedEvent {
         arguments: String,
     },
 
-    /// Tool execution result (T118 - TOOL_OBSERVATION).
+    /// Tool execution result (T118 - `TOOL_OBSERVATION`).
     ToolResult {
         /// Tool call ID this result corresponds to.
         tool_call_id: String,
@@ -81,7 +81,7 @@ pub enum NormalizedEvent {
         success: bool,
     },
 
-    /// Tool execution error (T119 - TOOL_ERROR).
+    /// Tool execution error (T119 - `TOOL_ERROR`).
     ToolError {
         /// Tool call ID.
         tool_call_id: String,
@@ -164,7 +164,7 @@ pub enum NormalizedEvent {
         model: Option<String>,
     },
 
-    /// Error event (T096 - ERROR_OCCURRED).
+    /// Error event (T096 - `ERROR_OCCURRED`).
     Error {
         /// Error message.
         message: String,

@@ -44,7 +44,7 @@ impl CronField {
             Self::Value(v) => *v == value,
             Self::List(values) => values.contains(&value),
             Self::Range(start, end) => value >= *start && value <= *end,
-            Self::Step(step) => value % step == 0,
+            Self::Step(step) => value.is_multiple_of(*step),
         }
     }
 }
@@ -71,7 +71,7 @@ impl CronParser {
     pub fn parse(expr: &str) -> Result<CronExpression> {
         let parts: Vec<&str> = expr.split_whitespace().collect();
         if parts.len() != 5 {
-            anyhow::bail!("Cron expression must have 5 fields: {}", expr);
+            anyhow::bail!("Cron expression must have 5 fields: {expr}");
         }
 
         Ok(CronExpression {
@@ -93,7 +93,7 @@ impl CronParser {
         if let Some(step_str) = field.strip_prefix("*/") {
             let step: u32 = step_str.parse().context("Invalid step value")?;
             if step == 0 || step > max {
-                anyhow::bail!("Step value must be 1-{}", max);
+                anyhow::bail!("Step value must be 1-{max}");
             }
             return Ok(CronField::Step(step));
         }
@@ -102,12 +102,12 @@ impl CronParser {
         if field.contains('-') {
             let range_parts: Vec<&str> = field.split('-').collect();
             if range_parts.len() != 2 {
-                anyhow::bail!("Invalid range format: {}", field);
+                anyhow::bail!("Invalid range format: {field}");
             }
             let start: u32 = range_parts[0].parse().context("Invalid range start")?;
             let end: u32 = range_parts[1].parse().context("Invalid range end")?;
             if start < min || start > max || end < min || end > max || start > end {
-                anyhow::bail!("Range values must be {}-{} with start <= end", min, max);
+                anyhow::bail!("Range values must be {min}-{max} with start <= end");
             }
             return Ok(CronField::Range(start, end));
         }
@@ -119,7 +119,7 @@ impl CronParser {
                 .map(|v| {
                     let num: u32 = v.parse().context("Invalid list value")?;
                     if num < min || num > max {
-                        anyhow::bail!("Value must be {}-{}", min, max);
+                        anyhow::bail!("Value must be {min}-{max}");
                     }
                     Ok(num)
                 })
@@ -130,7 +130,7 @@ impl CronParser {
         // Single value
         let value: u32 = field.parse().context("Invalid numeric value")?;
         if value < min || value > max {
-            anyhow::bail!("Value must be {}-{}", min, max);
+            anyhow::bail!("Value must be {min}-{max}");
         }
         Ok(CronField::Value(value))
     }

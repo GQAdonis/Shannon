@@ -2,13 +2,13 @@
 //!
 //! Implements the circuit breaker pattern to prevent repeated attempts to
 //! failing services. Tracks failure rates and transitions between Open,
-//! Closed, and HalfOpen states.
+//! Closed, and `HalfOpen` states.
 //!
 //! # States
 //!
 //! - **Closed**: Normal operation, requests pass through
 //! - **Open**: Too many failures, all requests fail fast
-//! - **HalfOpen**: Testing if service recovered, limited requests allowed
+//! - **`HalfOpen`**: Testing if service recovered, limited requests allowed
 //!
 //! # Example
 //!
@@ -72,7 +72,7 @@ struct CircuitBreakerInner {
     /// Number of consecutive failures.
     failure_count: u32,
 
-    /// Number of consecutive successes in HalfOpen state.
+    /// Number of consecutive successes in `HalfOpen` state.
     success_count: u32,
 
     /// When circuit was opened (for cooldown calculation).
@@ -92,10 +92,10 @@ pub struct CircuitBreaker {
     /// Failure threshold before opening circuit.
     failure_threshold: u32,
 
-    /// Cooldown period before transitioning to HalfOpen (seconds).
+    /// Cooldown period before transitioning to `HalfOpen` (seconds).
     cooldown_seconds: u64,
 
-    /// Number of successful requests needed to close circuit from HalfOpen.
+    /// Number of successful requests needed to close circuit from `HalfOpen`.
     success_threshold: u32,
 
     /// Inner mutable state.
@@ -135,7 +135,7 @@ impl CircuitBreaker {
     ///
     /// # Returns
     ///
-    /// - `true` if request should proceed (Closed or HalfOpen state)
+    /// - `true` if request should proceed (Closed or `HalfOpen` state)
     /// - `false` if request should be rejected (Open state)
     #[must_use]
     pub fn is_request_allowed(&self) -> bool {
@@ -170,7 +170,7 @@ impl CircuitBreaker {
 
     /// Record a successful request.
     ///
-    /// In HalfOpen state, successful requests count towards closing the circuit.
+    /// In `HalfOpen` state, successful requests count towards closing the circuit.
     pub fn record_success(&self) {
         let mut inner = self.inner.write();
 
@@ -209,7 +209,7 @@ impl CircuitBreaker {
     /// Record a failed request.
     ///
     /// In Closed state, failures count towards opening the circuit.
-    /// In HalfOpen state, any failure immediately opens the circuit again.
+    /// In `HalfOpen` state, any failure immediately opens the circuit again.
     pub fn record_failure(&self) {
         let mut inner = self.inner.write();
 
@@ -275,7 +275,7 @@ impl CircuitBreaker {
         inner.last_transition = Instant::now();
     }
 
-    /// Get time until circuit breaker will transition to HalfOpen.
+    /// Get time until circuit breaker will transition to `HalfOpen`.
     ///
     /// Returns `None` if circuit is not Open or cooldown has elapsed.
     #[must_use]

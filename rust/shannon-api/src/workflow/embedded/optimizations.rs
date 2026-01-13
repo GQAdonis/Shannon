@@ -3,13 +3,13 @@
 //! Provides utilities for:
 //! - Event batching (10 events/batch)
 //! - Memory pooling for event buffers
-//! - Connection pooling for SQLite
+//! - Connection pooling for `SQLite`
 //! - Parallel pattern execution
 
 use parking_lot::Mutex;
 use std::sync::Arc;
 
-/// Event batch for optimized SQLite writes.
+/// Event batch for optimized `SQLite` writes.
 ///
 /// # Design
 /// Accumulates events and flushes when:
@@ -67,7 +67,7 @@ impl<T: Clone> EventBatcher<T> {
 
         // Check if timeout exceeded
         let last_flush = self.last_flush.lock();
-        if last_flush.elapsed().as_millis() >= self.flush_timeout_ms as u128 {
+        if last_flush.elapsed().as_millis() >= u128::from(self.flush_timeout_ms) {
             drop(last_flush); // Release lock before draining
             let batch = pending.drain(..).collect();
             *self.last_flush.lock() = std::time::Instant::now();
@@ -189,13 +189,13 @@ impl ParallelExecutor {
     /// Create a new parallel executor.
     ///
     /// # Arguments
-    /// * `thread_pool_size` - Number of threads (default: num_cpus)
+    /// * `thread_pool_size` - Number of threads (default: `num_cpus`)
     #[must_use]
     pub fn new(thread_pool_size: usize) -> Self {
         Self { thread_pool_size }
     }
 
-    /// Create with default settings (num_cpus threads).
+    /// Create with default settings (`num_cpus` threads).
     #[must_use]
     pub fn default() -> Self {
         Self::new(num_cpus::get())

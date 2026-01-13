@@ -1,4 +1,4 @@
-//! ReAct (Reason-Act-Observe) cognitive pattern.
+//! `ReAct` (Reason-Act-Observe) cognitive pattern.
 //!
 //! Implements iterative loop of reasoning, action execution, and observation.
 //! Enables multi-step tool usage with feedback loops for autonomous task completion.
@@ -21,9 +21,9 @@ use durable_shannon::activities::{
     Activity, ActivityContext,
 };
 
-use super::{CognitivePattern, PatternContext, PatternResult, ReasoningStep, TokenUsage};
+use super::{CognitivePattern, PatternContext, PatternResult, ReasoningStep};
 
-/// ReAct pattern configuration.
+/// `ReAct` pattern configuration.
 #[derive(Debug, Clone)]
 pub struct ReAct {
     /// Maximum reasoning-action iterations.
@@ -37,7 +37,7 @@ pub struct ReAct {
 }
 
 impl ReAct {
-    /// Create a new ReAct pattern with defaults.
+    /// Create a new `ReAct` pattern with defaults.
     ///
     /// # Defaults
     ///
@@ -78,7 +78,7 @@ impl ReAct {
                     let rest = rest.trim();
                     // Extract tool name (everything before parenthesis or end of string)
                     let tool_name = rest
-                        .split(|c| c == '(' || c == ' ')
+                        .split(['(', ' '])
                         .next()
                         .unwrap_or("")
                         .trim()
@@ -114,7 +114,7 @@ impl Default for ReAct {
 
 #[async_trait]
 impl CognitivePattern for ReAct {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "react"
     }
 
@@ -242,7 +242,7 @@ Available tools: web_search, calculator";
                 // Act step
                 reasoning_steps.push(ReasoningStep {
                     step: iteration * 3 + 1,
-                    content: format!("Action: {}({})", tool_name, params),
+                    content: format!("Action: {tool_name}({params})"),
                     confidence: Some(0.9),
                     timestamp: Utc::now(),
                 });
@@ -253,7 +253,7 @@ Available tools: web_search, calculator";
                 // Observe step
                 reasoning_steps.push(ReasoningStep {
                     step: iteration * 3 + 2,
-                    content: format!("Observation: {}", tool_result),
+                    content: format!("Observation: {tool_result}"),
                     confidence: Some(0.9),
                     timestamp: Utc::now(),
                 });

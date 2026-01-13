@@ -47,7 +47,7 @@ pub struct SubmitTaskRequest {
     /// Temperature for sampling.
     #[serde(default)]
     pub temperature: Option<f32>,
-    /// System prompt override (deprecated - use context.system_prompt).
+    /// System prompt override (deprecated - use `context.system_prompt`).
     #[serde(default)]
     pub system_prompt: Option<String>,
     /// Available tools.
@@ -245,11 +245,11 @@ pub async fn list_tasks(
         // Check if already in list (by ID), update if so, otherwise add
         if let Some(existing) = tasks.iter_mut().find(|t| t.id == run.id) {
             // Update with latest active state
-            *existing = run_to_task_response_from_manager(&run);
+            *existing = run_to_task_response_from_manager(run);
             tracing::trace!("🔄 Updated task from active run - id={}", run.id);
         } else {
             // New active task not in DB yet
-            tasks.push(run_to_task_response_from_manager(&run));
+            tasks.push(run_to_task_response_from_manager(run));
             tracing::trace!("➕ Added new active task - id={}", run.id);
         }
     }
@@ -291,7 +291,7 @@ pub async fn list_tasks(
     )
 }
 
-/// Convert a Run from database to TaskResponse.
+/// Convert a Run from database to `TaskResponse`.
 fn run_to_task_response(run: &crate::database::repository::Run) -> TaskResponse {
     let status = match run.status.as_str() {
         "pending" => TaskStatus::Pending,
@@ -315,7 +315,7 @@ fn run_to_task_response(run: &crate::database::repository::Run) -> TaskResponse 
     }
 }
 
-/// Convert a Run from in-memory manager to TaskResponse.
+/// Convert a Run from in-memory manager to `TaskResponse`.
 fn run_to_task_response_from_manager(run: &crate::domain::Run) -> TaskResponse {
     use crate::domain::RunStatus;
 
@@ -452,7 +452,7 @@ pub async fn submit_task(
     if let Some(ref redis) = state.redis {
         let redis_timer = OpTimer::new("redis", "store_task");
         let mut redis = redis.clone();
-        let key = format!("task:{}", task_id);
+        let key = format!("task:{task_id}");
 
         tracing::debug!("💾 Storing task in Redis - key={}", key);
 
@@ -464,7 +464,7 @@ pub async fn submit_task(
         )
         .await
         {
-            Ok(_) => {
+            Ok(()) => {
                 redis_timer.finish();
                 tracing::info!("✅ Task stored in Redis - task_id={}, ttl=24h", task_id);
             }
@@ -529,7 +529,7 @@ pub async fn submit_task(
             // Update task status in Redis with workflow_id
             if let Some(ref redis) = state.redis {
                 let mut redis = redis.clone();
-                let key = format!("task:{}", task_id);
+                let key = format!("task:{task_id}");
 
                 tracing::debug!(
                     "💾 Updating task status in Redis - task_id={}, status=running",
@@ -562,7 +562,7 @@ pub async fn submit_task(
             // Update task status to failed in Redis
             if let Some(ref redis) = state.redis {
                 let mut redis = redis.clone();
-                let key = format!("task:{}", task_id);
+                let key = format!("task:{task_id}");
 
                 tracing::debug!(
                     "💾 Updating task status in Redis - task_id={}, status=failed",
@@ -572,8 +572,7 @@ pub async fn submit_task(
                 let mut failed_task = task.clone();
                 failed_task["status"] = serde_json::Value::String("failed".to_string());
                 failed_task["error"] = serde_json::Value::String(format!(
-                    "Failed to submit to workflow engine: {}",
-                    e
+                    "Failed to submit to workflow engine: {e}"
                 ));
 
                 let _ = redis::AsyncCommands::set_ex::<_, _, ()>(
@@ -598,7 +597,7 @@ pub async fn submit_task(
                     started_at: None,
                     completed_at: None,
                     session_id: req.session_id,
-                    error: Some(format!("Failed to submit to workflow engine: {}", e)),
+                    error: Some(format!("Failed to submit to workflow engine: {e}")),
                 }),
             )
                 .into_response();
@@ -681,7 +680,7 @@ pub async fn get_task_status(
     // Fall back to Redis if available
     if let Some(ref redis) = state.redis {
         let mut redis = redis.clone();
-        let key = format!("task:{}", id);
+        let key = format!("task:{id}");
 
         tracing::trace!("💾 Querying Redis - key={}", key);
 
@@ -752,7 +751,7 @@ pub async fn cancel_task(
 
     if let Some(ref redis) = state.redis {
         let mut redis = redis.clone();
-        let key = format!("task:{}", id);
+        let key = format!("task:{id}");
 
         tracing::debug!("💾 Fetching task from Redis - key={}", key);
 
@@ -919,7 +918,7 @@ pub async fn pause_task(
         )
         .await
     {
-        Ok(_) => {
+        Ok(()) => {
             tracing::info!("✅ Task paused successfully - task_id={}", id);
 
             timer.finish();
@@ -980,7 +979,7 @@ pub async fn resume_task(
 
     // Update control state in database
     match database.update_pause(&id, false, None, None).await {
-        Ok(_) => {
+        Ok(()) => {
             tracing::info!("✅ Task resumed successfully - task_id={}", id);
 
             timer.finish();
@@ -1043,11 +1042,7 @@ pub async fn get_task_progress(
             progress_percent,
             current_step: Some(format!("{:?}", run.status)),
             total_steps: Some(1),
-            completed_steps: Some(if run.status == RunStatus::Completed {
-                1
-            } else {
-                0
-            }),
+            completed_steps: Some(u32::from(run.status == RunStatus::Completed)),
             estimated_remaining_secs: None,
             subtasks: vec![],
         };
@@ -1061,62 +1056,59 @@ pub async fn get_task_progress(
     // Fall back to Redis if available
     if let Some(ref redis) = state.redis {
         let mut redis = redis.clone();
-        let key = format!("task:{}", id);
+        let key = format!("task:{id}");
 
-        match redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await {
-            Ok(Some(data)) => {
-                if let Ok(task) = serde_json::from_str::<serde_json::Value>(&data) {
-                    let status = match task["status"].as_str().unwrap_or("pending") {
-                        "pending" => TaskStatus::Pending,
-                        "running" => TaskStatus::Running,
-                        "completed" => TaskStatus::Completed,
-                        "failed" => TaskStatus::Failed,
-                        "cancelled" => TaskStatus::Cancelled,
-                        _ => TaskStatus::Pending,
-                    };
+        if let Ok(Some(data)) = redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await {
+            if let Ok(task) = serde_json::from_str::<serde_json::Value>(&data) {
+                let status = match task["status"].as_str().unwrap_or("pending") {
+                    "pending" => TaskStatus::Pending,
+                    "running" => TaskStatus::Running,
+                    "completed" => TaskStatus::Completed,
+                    "failed" => TaskStatus::Failed,
+                    "cancelled" => TaskStatus::Cancelled,
+                    _ => TaskStatus::Pending,
+                };
 
-                    let progress = &task["progress"];
-                    let subtasks = progress["subtasks"]
-                        .as_array()
-                        .map(|arr| {
-                            arr.iter()
-                                .filter_map(|s| {
-                                    Some(SubtaskProgress {
-                                        id: s["id"].as_str()?.to_string(),
-                                        name: s["name"].as_str()?.to_string(),
-                                        status: match s["status"].as_str()? {
-                                            "pending" => TaskStatus::Pending,
-                                            "running" => TaskStatus::Running,
-                                            "completed" => TaskStatus::Completed,
-                                            "failed" => TaskStatus::Failed,
-                                            "cancelled" => TaskStatus::Cancelled,
-                                            _ => TaskStatus::Pending,
-                                        },
-                                        output: s["output"].as_str().map(String::from),
-                                    })
+                let progress = &task["progress"];
+                let subtasks = progress["subtasks"]
+                    .as_array()
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|s| {
+                                Some(SubtaskProgress {
+                                    id: s["id"].as_str()?.to_string(),
+                                    name: s["name"].as_str()?.to_string(),
+                                    status: match s["status"].as_str()? {
+                                        "pending" => TaskStatus::Pending,
+                                        "running" => TaskStatus::Running,
+                                        "completed" => TaskStatus::Completed,
+                                        "failed" => TaskStatus::Failed,
+                                        "cancelled" => TaskStatus::Cancelled,
+                                        _ => TaskStatus::Pending,
+                                    },
+                                    output: s["output"].as_str().map(String::from),
                                 })
-                                .collect()
-                        })
-                        .unwrap_or_default();
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
 
-                    let response = TaskProgressResponse {
-                        id: id.clone(),
-                        status,
-                        progress_percent: progress["percent"].as_u64().unwrap_or(0) as u8,
-                        current_step: progress["current_step"].as_str().map(String::from),
-                        total_steps: progress["total_steps"].as_u64().map(|v| v as u32),
-                        completed_steps: progress["completed_steps"].as_u64().map(|v| v as u32),
-                        estimated_remaining_secs: progress["estimated_remaining_secs"].as_u64(),
-                        subtasks,
-                    };
+                let response = TaskProgressResponse {
+                    id: id.clone(),
+                    status,
+                    progress_percent: progress["percent"].as_u64().unwrap_or(0) as u8,
+                    current_step: progress["current_step"].as_str().map(String::from),
+                    total_steps: progress["total_steps"].as_u64().map(|v| v as u32),
+                    completed_steps: progress["completed_steps"].as_u64().map(|v| v as u32),
+                    estimated_remaining_secs: progress["estimated_remaining_secs"].as_u64(),
+                    subtasks,
+                };
 
-                    return (
-                        StatusCode::OK,
-                        Json(serde_json::to_value(response).unwrap()),
-                    );
-                }
+                return (
+                    StatusCode::OK,
+                    Json(serde_json::to_value(response).unwrap()),
+                );
             }
-            _ => {}
         }
     }
 
@@ -1203,35 +1195,32 @@ pub async fn get_task_output(
 ) -> impl IntoResponse {
     if let Some(ref redis) = state.redis {
         let mut redis = redis.clone();
-        let key = format!("task:{}", id);
+        let key = format!("task:{id}");
 
-        match redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await {
-            Ok(Some(data)) => {
-                if let Ok(task) = serde_json::from_str::<serde_json::Value>(&data) {
-                    let status = task["status"].as_str().unwrap_or("pending");
+        if let Ok(Some(data)) = redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await {
+            if let Ok(task) = serde_json::from_str::<serde_json::Value>(&data) {
+                let status = task["status"].as_str().unwrap_or("pending");
 
-                    if status != "completed" {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(serde_json::json!({
-                                "error": "task_not_completed",
-                                "message": format!("Task {} is not yet completed (status: {})", id, status)
-                            })),
-                        );
-                    }
-
+                if status != "completed" {
                     return (
-                        StatusCode::OK,
+                        StatusCode::BAD_REQUEST,
                         Json(serde_json::json!({
-                            "id": id,
-                            "output": task["output"],
-                            "completed_at": task["completed_at"],
-                            "usage": task["usage"]
+                            "error": "task_not_completed",
+                            "message": format!("Task {} is not yet completed (status: {})", id, status)
                         })),
                     );
                 }
+
+                return (
+                    StatusCode::OK,
+                    Json(serde_json::json!({
+                        "id": id,
+                        "output": task["output"],
+                        "completed_at": task["completed_at"],
+                        "usage": task["usage"]
+                    })),
+                );
             }
-            _ => {}
         }
     }
 

@@ -85,7 +85,7 @@ pub struct PatternResult {
     /// Final output or answer.
     pub output: String,
 
-    /// Reasoning steps taken (for CoT, ToT).
+    /// Reasoning steps taken (for `CoT`, `ToT`).
     pub reasoning_steps: Vec<ReasoningStep>,
 
     /// Sources cited (for Research).
@@ -143,7 +143,7 @@ pub struct TokenUsage {
 
 /// Cognitive pattern trait.
 ///
-/// All cognitive patterns (CoT, ToT, Research, etc.) must implement this trait.
+/// All cognitive patterns (`CoT`, `ToT`, Research, etc.) must implement this trait.
 ///
 /// # Thread Safety
 ///

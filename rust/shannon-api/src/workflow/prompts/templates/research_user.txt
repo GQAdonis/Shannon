@@ -1,0 +1,13 @@
+{{#if context}}
+Context:
+{{context}}
+
+{{/if}}
+{{#if sources}}
+Available Sources:
+{{sources}}
+
+{{/if}}
+Research Topic: {{query}}
+
+Please conduct thorough research on this topic. Identify key questions, consult sources, and provide a well-cited analysis.

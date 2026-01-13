@@ -60,7 +60,7 @@ pub async fn store_response(
 ) -> anyhow::Result<()> {
     use redis::AsyncCommands;
 
-    let key = format!("idempotency:{}", idempotency_key);
+    let key = format!("idempotency:{idempotency_key}");
     let value = serde_json::to_string(response)?;
     
     let _: () = redis.set_ex(&key, value, ttl_secs).await?;
@@ -75,7 +75,7 @@ pub async fn get_cached_response(
 ) -> anyhow::Result<Option<CachedResponse>> {
     use redis::AsyncCommands;
 
-    let key = format!("idempotency:{}", idempotency_key);
+    let key = format!("idempotency:{idempotency_key}");
     let value: Option<String> = redis.get(&key).await?;
     
     match value {
@@ -95,7 +95,7 @@ pub async fn mark_in_progress(
 ) -> anyhow::Result<bool> {
     use redis::AsyncCommands;
 
-    let key = format!("idempotency_lock:{}", idempotency_key);
+    let key = format!("idempotency_lock:{idempotency_key}");
     
     // Use SETNX to atomically set only if not exists
     let result: bool = redis.set_nx(&key, "processing").await?;
@@ -115,7 +115,7 @@ pub async fn release_lock(
 ) -> anyhow::Result<()> {
     use redis::AsyncCommands;
 
-    let key = format!("idempotency_lock:{}", idempotency_key);
+    let key = format!("idempotency_lock:{idempotency_key}");
     let _: () = redis.del(&key).await?;
     
     Ok(())
@@ -154,13 +154,10 @@ pub async fn idempotency_middleware(
     };
 
     // Check if we have Redis
-    let redis = match &state.redis {
-        Some(r) => r.clone(),
-        None => {
-            // Without Redis, just process normally
-            tracing::debug!("Idempotency key provided but Redis not available");
-            return Ok(next.run(req).await);
-        }
+    let redis = if let Some(r) = &state.redis { r.clone() } else {
+        // Without Redis, just process normally
+        tracing::debug!("Idempotency key provided but Redis not available");
+        return Ok(next.run(req).await);
     };
 
     let mut redis = redis;

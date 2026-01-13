@@ -95,7 +95,7 @@ impl ExportManager {
         let mut md = String::new();
 
         // Title
-        md.push_str(&format!("# Workflow Report\n\n"));
+        md.push_str("# Workflow Report\n\n");
 
         // Metadata
         md.push_str("## Workflow Information\n\n");
@@ -118,7 +118,7 @@ impl ExportManager {
             ));
         }
 
-        md.push_str("\n");
+        md.push('\n');
 
         // Input
         md.push_str("## Input\n\n");

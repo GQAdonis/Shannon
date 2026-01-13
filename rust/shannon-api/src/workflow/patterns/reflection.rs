@@ -21,7 +21,7 @@ use durable_shannon::activities::{
     Activity, ActivityContext,
 };
 
-use super::{CognitivePattern, PatternContext, PatternResult, ReasoningStep, TokenUsage};
+use super::{CognitivePattern, PatternContext, PatternResult, ReasoningStep};
 
 /// Reflection pattern configuration.
 #[derive(Debug, Clone)]
@@ -238,7 +238,7 @@ impl Default for Reflection {
 
 #[async_trait]
 impl CognitivePattern for Reflection {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "reflection"
     }
 
@@ -269,7 +269,7 @@ impl CognitivePattern for Reflection {
 
         reasoning_steps.push(ReasoningStep {
             step: 0,
-            content: format!("Initial answer generated: {}", current_answer),
+            content: format!("Initial answer generated: {current_answer}"),
             confidence: Some(0.7),
             timestamp: Utc::now(),
         });
@@ -287,7 +287,7 @@ impl CognitivePattern for Reflection {
 
             reasoning_steps.push(ReasoningStep {
                 step: iteration * 2 + 1,
-                content: format!("Critique (quality={}): {}", quality_score, critique),
+                content: format!("Critique (quality={quality_score}): {critique}"),
                 confidence: Some(quality_score),
                 timestamp: Utc::now(),
             });
@@ -308,7 +308,7 @@ impl CognitivePattern for Reflection {
 
             reasoning_steps.push(ReasoningStep {
                 step: iteration * 2 + 2,
-                content: format!("Improved answer: {}", improved),
+                content: format!("Improved answer: {improved}"),
                 confidence: Some(0.75),
                 timestamp: Utc::now(),
             });

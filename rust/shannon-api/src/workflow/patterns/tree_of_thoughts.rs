@@ -1,4 +1,4 @@
-//! Tree of Thoughts (ToT) cognitive pattern.
+//! Tree of Thoughts (`ToT`) cognitive pattern.
 //!
 //! Implements branching exploration with evaluation and backtracking.
 //! Explores multiple solution paths in parallel, evaluates each branch,
@@ -22,7 +22,7 @@ use durable_shannon::activities::{
     Activity, ActivityContext,
 };
 
-use super::{CognitivePattern, PatternContext, PatternResult, ReasoningStep, TokenUsage};
+use super::{CognitivePattern, PatternContext, PatternResult, ReasoningStep};
 
 /// Thought node in the tree.
 #[derive(Debug, Clone)]
@@ -218,7 +218,7 @@ impl TreeOfThoughts {
         self.expand_node(ctx, query, root).await
     }
 
-    /// Recursively expand a thought node (using Box::pin for recursion).
+    /// Recursively expand a thought node (using `Box::pin` for recursion).
     fn expand_node<'a>(
         &'a self,
         ctx: &'a PatternContext,
@@ -296,7 +296,7 @@ impl Default for TreeOfThoughts {
 
 #[async_trait]
 impl CognitivePattern for TreeOfThoughts {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "tree_of_thoughts"
     }
 

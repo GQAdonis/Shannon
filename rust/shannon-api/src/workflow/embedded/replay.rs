@@ -173,7 +173,7 @@ impl ReplayManager {
             .workflow_store
             .get_workflow(workflow_id)
             .await?
-            .ok_or_else(|| anyhow::anyhow!("Workflow not found: {}", workflow_id))?;
+            .ok_or_else(|| anyhow::anyhow!("Workflow not found: {workflow_id}"))?;
 
         let checkpoint = self.workflow_store.load_checkpoint(workflow_id).await?;
 
@@ -301,7 +301,7 @@ impl ReplayManager {
 
         Ok(ReplayResult {
             workflow_id: workflow_id.clone(),
-            final_status: history.workflow.status.clone(),
+            final_status: history.workflow.status,
             events_replayed,
             duration_ms,
             final_state: None,

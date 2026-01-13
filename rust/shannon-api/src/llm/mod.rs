@@ -1,7 +1,7 @@
 //! LLM driver traits and implementations.
 //!
 //! This module provides protocol-agnostic abstractions for interacting with
-//! Large Language Models, supporting OpenAI, Anthropic, Google, and other providers.
+//! Large Language Models, supporting `OpenAI`, Anthropic, Google, and other providers.
 //!
 //! # Overview
 //!
@@ -11,7 +11,7 @@
 //!
 //! # Drivers
 //!
-//! - [`providers::OpenAiDriver`]: OpenAI and compatible APIs
+//! - [`providers::OpenAiDriver`]: `OpenAI` and compatible APIs
 //! - [`providers::AnthropicDriver`]: Anthropic Claude API
 //! - [`providers::GoogleDriver`]: Google Gemini API
 //! - [`providers::GroqDriver`]: Groq API
@@ -74,7 +74,7 @@ impl Default for LlmSettings {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Provider {
-    /// OpenAI and compatible APIs.
+    /// `OpenAI` and compatible APIs.
     #[default]
     OpenAi,
     /// Anthropic Claude.
@@ -275,7 +275,7 @@ pub struct ToolCallFunction {
 pub struct LlmRequest {
     /// Conversation messages.
     pub messages: Vec<Message>,
-    /// Available tools in OpenAI function schema format.
+    /// Available tools in `OpenAI` function schema format.
     pub tools: Vec<serde_json::Value>,
     /// Model to use (overrides settings).
     pub model: Option<String>,

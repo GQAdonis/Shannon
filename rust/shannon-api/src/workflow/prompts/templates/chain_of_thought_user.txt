@@ -1,0 +1,8 @@
+{{#if context}}
+Context:
+{{context}}
+
+{{/if}}
+Query: {{query}}
+
+Please analyze this query using chain-of-thought reasoning. Show your step-by-step thinking process.

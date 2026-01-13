@@ -1,0 +1,8 @@
+{{#if context}}
+Context:
+{{context}}
+
+{{/if}}
+Problem: {{query}}
+
+Please explore {{#if branches}}{{branches}}{{else}}multiple{{/if}} solution paths for this problem using the tree-of-thoughts approach. Evaluate each path and converge on the best solution.

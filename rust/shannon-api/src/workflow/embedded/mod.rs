@@ -1,9 +1,9 @@
 //! Embedded workflow engine for Tauri desktop application.
 //!
 //! Provides workflow orchestration without external dependencies:
-//! - No Temporal (uses Durable + SQLite)
+//! - No Temporal (uses Durable + `SQLite`)
 //! - No orchestrator service (in-process execution)
-//! - No PostgreSQL (uses SQLite for state)
+//! - No `PostgreSQL` (uses `SQLite` for state)
 //!
 //! # Architecture
 //!

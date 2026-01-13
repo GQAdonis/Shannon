@@ -1,7 +1,7 @@
 //! Cognitive pattern management and execution.
 //!
 //! Provides infrastructure for registering, looking up, and executing
-//! cognitive patterns (CoT, ToT, Research, ReAct, Debate, Reflection).
+//! cognitive patterns (`CoT`, `ToT`, Research, `ReAct`, Debate, Reflection).
 //!
 //! # Example
 //!

@@ -89,7 +89,7 @@ impl ToolSecurity {
                 // Check blocklist even in allow-all mode
                 let blocklist = self.blocklist.read().await;
                 if blocklist.contains(tool_name) {
-                    Err(format!("Tool '{}' is blocked", tool_name))
+                    Err(format!("Tool '{tool_name}' is blocked"))
                 } else {
                     Ok(())
                 }
@@ -99,13 +99,13 @@ impl ToolSecurity {
                 if allowlist.contains(tool_name) {
                     Ok(())
                 } else {
-                    Err(format!("Tool '{}' is not in allowlist", tool_name))
+                    Err(format!("Tool '{tool_name}' is not in allowlist"))
                 }
             }
             SecurityPolicy::BlockList => {
                 let blocklist = self.blocklist.read().await;
                 if blocklist.contains(tool_name) {
-                    Err(format!("Tool '{}' is blocked", tool_name))
+                    Err(format!("Tool '{tool_name}' is blocked"))
                 } else {
                     Ok(())
                 }

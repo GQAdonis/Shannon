@@ -21,7 +21,7 @@ use durable_shannon::activities::{
     Activity, ActivityContext,
 };
 
-use super::{CognitivePattern, PatternContext, PatternResult, ReasoningStep, TokenUsage};
+use super::{CognitivePattern, PatternContext, PatternResult, ReasoningStep};
 
 /// Debate pattern configuration.
 #[derive(Debug, Clone)]
@@ -210,7 +210,7 @@ impl Default for Debate {
 
 #[async_trait]
 impl CognitivePattern for Debate {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "debate"
     }
 

@@ -1,7 +1,7 @@
 //! Database repository implementations.
 //!
 //! Provides trait-based abstractions for data access that work across
-//! different database backends (SurrealDB, PostgreSQL, SQLite).
+//! different database backends (`SurrealDB`, `PostgreSQL`, `SQLite`).
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -159,10 +159,10 @@ pub trait MemoryRepository: Send + Sync {
 /// Database abstraction over different backends.
 #[derive(Clone)]
 pub enum Database {
-    /// SQLite for mobile mode.
+    /// `SQLite` for mobile mode.
     #[cfg(feature = "embedded-mobile")]
     SQLite(SQLiteClient),
-    /// Hybrid (SQLite + USearch) for desktop mode.
+    /// Hybrid (`SQLite` + `USearch`) for desktop mode.
     #[cfg(feature = "usearch")]
     Hybrid(crate::database::hybrid::HybridBackend),
     /// In-memory store for testing.
@@ -264,9 +264,9 @@ impl Database {
 
                 // Apply filters
                 runs.retain(|r| {
-                    let status_match = status_filter.map_or(true, |s| r.status == s);
+                    let status_match = status_filter.is_none_or(|s| r.status == s);
                     let session_match =
-                        session_filter.map_or(true, |s| r.session_id.as_deref() == Some(s));
+                        session_filter.is_none_or(|s| r.session_id.as_deref() == Some(s));
                     status_match && session_match
                 });
 

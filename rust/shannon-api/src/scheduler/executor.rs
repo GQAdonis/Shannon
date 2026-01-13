@@ -102,7 +102,7 @@ impl ScheduleExecutor {
 
         schedules
             .values()
-            .filter(|s| s.enabled && s.next_run_at.map(|next| next <= now).unwrap_or(false))
+            .filter(|s| s.enabled && s.next_run_at.is_some_and(|next| next <= now))
             .cloned()
             .collect()
     }

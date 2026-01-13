@@ -31,7 +31,7 @@ use proto::orchestrator::orchestrator_service_client::OrchestratorServiceClient;
 /// Configuration for the Orchestrator gRPC client.
 #[derive(Debug, Clone)]
 pub struct OrchestratorClientConfig {
-    /// gRPC endpoint address (e.g., "http://localhost:50052").
+    /// gRPC endpoint address (e.g., "<http://localhost:50052>").
     pub endpoint: String,
     /// Request timeout in seconds.
     pub timeout_secs: u64,
@@ -321,7 +321,7 @@ impl OrchestratorClient {
                 .await?;
 
             let inner = response.into_inner();
-            return Ok(SubmitTaskResponse {
+            Ok(SubmitTaskResponse {
                 workflow_id: inner.workflow_id.clone(),
                 task_id: inner.task_id.clone(),
                 status: format!("{:?}", inner.status()),
@@ -330,7 +330,7 @@ impl OrchestratorClient {
                 } else {
                     Some(inner.message)
                 },
-            });
+            })
         }
 
         #[cfg(not(feature = "grpc"))]
@@ -359,7 +359,7 @@ impl OrchestratorClient {
                 .await?;
 
             let inner = response.into_inner();
-            return Ok(GetTaskStatusResponse {
+            Ok(GetTaskStatusResponse {
                 task_id: inner.task_id.clone(),
                 status: proto_status_to_local(inner.status()),
                 progress: inner.progress,
@@ -379,7 +379,7 @@ impl OrchestratorClient {
                 } else {
                     Some(inner.error_message)
                 },
-            });
+            })
         }
 
         #[cfg(not(feature = "grpc"))]
@@ -408,14 +408,14 @@ impl OrchestratorClient {
                 .await?;
 
             let inner = response.into_inner();
-            return Ok(CancelTaskResponse {
+            Ok(CancelTaskResponse {
                 success: inner.success,
                 message: if inner.message.is_empty() {
                     None
                 } else {
                     Some(inner.message)
                 },
-            });
+            })
         }
 
         #[cfg(not(feature = "grpc"))]
@@ -440,7 +440,7 @@ impl OrchestratorClient {
                 .pause_task(tonic::Request::new(proto_request))
                 .await?;
 
-            return Ok(response.into_inner().success);
+            Ok(response.into_inner().success)
         }
 
         #[cfg(not(feature = "grpc"))]
@@ -465,7 +465,7 @@ impl OrchestratorClient {
                 .resume_task(tonic::Request::new(proto_request))
                 .await?;
 
-            return Ok(response.into_inner().success);
+            Ok(response.into_inner().success)
         }
 
         #[cfg(not(feature = "grpc"))]
@@ -481,8 +481,8 @@ impl OrchestratorClient {
         #[cfg(feature = "grpc")]
         {
             match self.get_client().await {
-                Ok(_) => return Ok(true),
-                Err(_) => return Ok(false),
+                Ok(_) => Ok(true),
+                Err(_) => Ok(false),
             }
         }
 

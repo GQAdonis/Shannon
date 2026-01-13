@@ -1,6 +1,6 @@
-//! OpenAI and OpenAI-compatible provider driver.
+//! `OpenAI` and OpenAI-compatible provider driver.
 //!
-//! This driver supports OpenAI, Groq, xAI, and any OpenAI-compatible API.
+//! This driver supports `OpenAI`, Groq, xAI, and any OpenAI-compatible API.
 
 use crate::events::NormalizedEvent;
 use crate::llm::{LlmDriver, LlmRequest, LlmSettings, Message, MessageContent, Provider};
@@ -18,7 +18,7 @@ pub struct OpenAiDriver {
 }
 
 impl OpenAiDriver {
-    /// Create a new OpenAI driver.
+    /// Create a new `OpenAI` driver.
     pub fn new(settings: LlmSettings) -> Self {
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(300))
@@ -36,7 +36,7 @@ impl OpenAiDriver {
         )
     }
 
-    /// Convert messages to OpenAI format.
+    /// Convert messages to `OpenAI` format.
     fn convert_messages(messages: &[Message]) -> Vec<serde_json::Value> {
         messages
             .iter()
@@ -112,7 +112,7 @@ impl LlmDriver for OpenAiDriver {
 
         // Add authorization header
         if let Some(ref api_key) = self.settings.api_key {
-            request = request.header("Authorization", format!("Bearer {}", api_key));
+            request = request.header("Authorization", format!("Bearer {api_key}"));
         }
 
         let response = request.send().await?;
@@ -120,7 +120,7 @@ impl LlmDriver for OpenAiDriver {
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().await.unwrap_or_default();
-            anyhow::bail!("OpenAI API error ({}): {}", status, text);
+            anyhow::bail!("OpenAI API error ({status}): {text}");
         }
 
         let stream = response.bytes_stream();
@@ -134,7 +134,7 @@ impl LlmDriver for OpenAiDriver {
                 let chunk = match chunk_result {
                     Ok(c) => c,
                     Err(e) => {
-                        yield Err(anyhow::anyhow!("Stream error: {}", e));
+                        yield Err(anyhow::anyhow!("Stream error: {e}"));
                         continue;
                     }
                 };
@@ -142,7 +142,7 @@ impl LlmDriver for OpenAiDriver {
                 let chunk_str = match std::str::from_utf8(&chunk) {
                     Ok(s) => s,
                     Err(e) => {
-                        yield Err(anyhow::anyhow!("UTF-8 error: {}", e));
+                        yield Err(anyhow::anyhow!("UTF-8 error: {e}"));
                         continue;
                     }
                 };
@@ -189,7 +189,7 @@ impl LlmDriver for OpenAiDriver {
     }
 }
 
-/// OpenAI streaming response chunk.
+/// `OpenAI` streaming response chunk.
 #[derive(Debug, Deserialize)]
 struct OpenAiStreamChunk {
     #[allow(dead_code)]

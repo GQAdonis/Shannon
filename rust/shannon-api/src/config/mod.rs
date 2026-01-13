@@ -16,11 +16,11 @@
 //!
 //! # Deployment Modes
 //!
-//! - **Embedded**: Self-contained desktop/mobile with Durable + SurrealDB
-//! - **Cloud**: Multi-tenant with Temporal + PostgreSQL
+//! - **Embedded**: Self-contained desktop/mobile with Durable + `SurrealDB`
+//! - **Cloud**: Multi-tenant with Temporal + `PostgreSQL`
 //! - **Hybrid**: Local-first with optional cloud sync
 //! - **Mesh**: P2P sync between devices
-//! - **MeshCloud**: P2P sync with cloud backup
+//! - **`MeshCloud`**: P2P sync with cloud backup
 
 pub mod deployment;
 pub mod error;
@@ -38,6 +38,7 @@ use std::collections::HashMap;
 
 /// Main application configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct AppConfig {
     /// Deployment configuration (mode, workflow engine, database driver).
     #[serde(default)]
@@ -71,22 +72,6 @@ pub struct AppConfig {
     pub logging: LoggingConfig,
 }
 
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self {
-            deployment: DeploymentConfig::default(),
-            server: ServerConfig::default(),
-            gateway: GatewayConfig::default(),
-            security: SecurityConfig::default(),
-            database: DatabaseConfig::default(),
-            redis: RedisConfig::default(),
-            orchestrator: OrchestratorConfig::default(),
-            providers: ProvidersConfig::default(),
-            llm: LlmConfig::default(),
-            logging: LoggingConfig::default(),
-        }
-    }
-}
 
 impl AppConfig {
     /// Load configuration from environment and config files.
@@ -103,7 +88,7 @@ impl AppConfig {
 
         // Validate configuration
         ConfigValidator::validate(&config)
-            .map_err(|e| anyhow::anyhow!("Configuration validation failed:\n\n{}", e))?;
+            .map_err(|e| anyhow::anyhow!("Configuration validation failed:\n\n{e}"))?;
 
         Ok(config)
     }
@@ -307,7 +292,7 @@ impl Default for GatewayConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityConfig {
     /// JWT secret for token signing/validation in embedded mode.
-    /// Falls back to gateway.jwt_secret if not set.
+    /// Falls back to `gateway.jwt_secret` if not set.
     pub jwt_secret: Option<String>,
     /// JWT token expiry in days for embedded mode.
     #[serde(default = "default_jwt_expiry_days")]
@@ -341,7 +326,7 @@ impl Default for SecurityConfig {
 /// Database configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseConfig {
-    /// PostgreSQL connection URL.
+    /// `PostgreSQL` connection URL.
     pub url: Option<String>,
     /// Maximum connection pool size.
     #[serde(default = "default_pool_size")]
@@ -435,7 +420,7 @@ impl Default for OrchestratorConfig {
 /// LLM provider configurations.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ProvidersConfig {
-    /// OpenAI configuration.
+    /// `OpenAI` configuration.
     #[serde(default)]
     pub openai: ProviderConfig,
     /// Anthropic configuration.
@@ -462,7 +447,7 @@ pub struct ProviderConfig {
     pub api_key: Option<String>,
     /// Base URL override.
     pub base_url: Option<String>,
-    /// Organization ID (for OpenAI).
+    /// Organization ID (for `OpenAI`).
     pub organization: Option<String>,
     /// Default model for this provider.
     pub default_model: Option<String>,

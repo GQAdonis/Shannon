@@ -100,7 +100,7 @@ impl Orchestrator {
             loop {
                 if iteration >= max_iterations {
                     yield StreamEvent::new(seq, NormalizedEvent::error(
-                        format!("Maximum tool iterations ({}) exceeded", max_iterations)
+                        format!("Maximum tool iterations ({max_iterations}) exceeded")
                     ));
                     seq += 1;
                     yield StreamEvent::new(seq, NormalizedEvent::done());
@@ -216,7 +216,7 @@ impl Orchestrator {
 
                     let (content, success) = match result {
                         Ok(output) => (output, true),
-                        Err(e) => (format!("Tool error: {}", e), false),
+                        Err(e) => (format!("Tool error: {e}"), false),
                     };
 
                     // Emit tool result event

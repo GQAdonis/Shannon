@@ -5,7 +5,7 @@
 //! Rust-based solution that offers:
 //!
 //! - **Gateway**: Authentication, rate limiting, session management
-//! - **Multi-provider LLM support**: OpenAI, Anthropic, Google, Groq, and more
+//! - **Multi-provider LLM support**: `OpenAI`, Anthropic, Google, Groq, and more
 //! - **Streaming**: First-class SSE and WebSocket streaming
 //! - **MCP Integration**: Model Context Protocol for tool discovery and execution
 //! - **Tool Loop**: Automatic tool call handling with configurable iteration limits
@@ -97,7 +97,7 @@ pub struct AppState {
     /// In embedded mode, this uses the local Durable engine.
     /// In cloud mode, this uses Temporal via the Go orchestrator.
     pub workflow_engine: WorkflowEngine,
-    /// Embedded Database connection (SurrealDB or Hybrid).
+    /// Embedded Database connection (`SurrealDB` or Hybrid).
     /// Used for authentication, rate limiting, and direct DB access.
     #[cfg(feature = "embedded")]
     pub database: Option<database::Database>,

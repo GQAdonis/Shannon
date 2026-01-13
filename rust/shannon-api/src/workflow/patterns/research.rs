@@ -16,7 +16,6 @@
 //! let result = research.execute(&ctx, "What are the latest AI trends?").await?;
 //! ```
 
-use anyhow::Result;
 use async_trait::async_trait;
 use chrono::Utc;
 use durable_shannon::activities::{
@@ -233,7 +232,7 @@ impl Default for Research {
 
 #[async_trait]
 impl CognitivePattern for Research {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "research"
     }
 
@@ -311,9 +310,9 @@ impl CognitivePattern for Research {
         for (idx, question) in sub_questions.iter().enumerate() {
             for i in 0..self.sources_per_round.min(3) {
                 all_sources.push(Source {
-                    url: format!("https://example.com/source-{}-{}", idx, i),
-                    title: Some(format!("Source for: {}", question)),
-                    excerpt: Some(format!("Relevant information about: {}", question)),
+                    url: format!("https://example.com/source-{idx}-{i}"),
+                    title: Some(format!("Source for: {question}")),
+                    excerpt: Some(format!("Relevant information about: {question}")),
                     relevance: Some(0.8),
                 });
             }

@@ -181,7 +181,7 @@ pub async fn validate_api_key(
 /// Authentication middleware that validates JWT or API key.
 ///
 /// Supports three authentication modes:
-/// 1. **Embedded mode** (no token): Defaults to "embedded_user" with admin role
+/// 1. **Embedded mode** (no token): Defaults to "`embedded_user`" with admin role
 /// 2. **JWT authentication**: Validates JWT token and extracts user info
 /// 3. **API key authentication**: Validates API key (starts with "sk-" or "test-")
 ///
@@ -244,7 +244,7 @@ pub async fn auth_middleware(
                             let claims = embedded_auth::validate_embedded_jwt(token, secret)
                                 .map_err(|e| AuthError {
                                     error: "invalid_token".to_string(),
-                                    message: format!("JWT validation failed: {}", e),
+                                    message: format!("JWT validation failed: {e}"),
                                 })?;
 
                             AuthenticatedUser {
@@ -318,7 +318,7 @@ pub async fn auth_middleware(
 
                     let claims = validate_jwt(token, secret).map_err(|e| AuthError {
                         error: "invalid_token".to_string(),
-                        message: format!("JWT validation failed: {}", e),
+                        message: format!("JWT validation failed: {e}"),
                     })?;
 
                     AuthenticatedUser {
@@ -359,7 +359,7 @@ pub fn get_authenticated_user(req: &Request<Body>) -> Option<&AuthenticatedUser>
 /// Get current user information (embedded mode).
 ///
 /// Returns basic user information for the authenticated user.
-/// In embedded mode, this returns default values for the embedded_user.
+/// In embedded mode, this returns default values for the `embedded_user`.
 ///
 /// # Errors
 ///

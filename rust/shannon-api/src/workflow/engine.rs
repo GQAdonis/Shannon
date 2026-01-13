@@ -276,12 +276,12 @@ impl DurableEngine {
         );
 
         // Ensure WASM directory exists
-        if !wasm_dir.exists() {
+        if wasm_dir.exists() {
+            tracing::debug!("📁 WASM directory exists: {:?}", wasm_dir);
+        } else {
             tracing::debug!("📁 Creating WASM directory: {:?}", wasm_dir);
             std::fs::create_dir_all(&wasm_dir)?;
             tracing::info!("✅ Created WASM directory: {:?}", wasm_dir);
-        } else {
-            tracing::debug!("📁 WASM directory exists: {:?}", wasm_dir);
         }
 
         #[cfg(feature = "embedded")]
@@ -528,7 +528,7 @@ impl WorkflowEngineImpl for DurableEngine {
                 task_id.clone(),
                 DurableTask {
                     id: task_id.clone(),
-                    workflow_id: format!("durable-{}", task_id),
+                    workflow_id: format!("durable-{task_id}"),
                     state: TaskState::Pending,
                     progress: 0,
                     message: Some("Task submitted".to_string()),
@@ -644,7 +644,7 @@ impl WorkflowEngineImpl for DurableEngine {
         let tasks = self.tasks.read().await;
         let task = tasks
             .get(task_id)
-            .ok_or_else(|| anyhow::anyhow!("Task not found: {}", task_id))?;
+            .ok_or_else(|| anyhow::anyhow!("Task not found: {task_id}"))?;
 
         Ok(TaskHandle {
             task_id: task.id.clone(),
@@ -659,7 +659,7 @@ impl WorkflowEngineImpl for DurableEngine {
         let tasks = self.tasks.read().await;
         let task = tasks
             .get(task_id)
-            .ok_or_else(|| anyhow::anyhow!("Task not found: {}", task_id))?;
+            .ok_or_else(|| anyhow::anyhow!("Task not found: {task_id}"))?;
 
         if task.state != TaskState::Completed && task.state != TaskState::Failed {
             anyhow::bail!(
@@ -738,7 +738,7 @@ impl WorkflowEngineImpl for DurableEngine {
         let channels = self.channels.read().await;
         let tx = channels
             .get(task_id)
-            .ok_or_else(|| anyhow::anyhow!("Task not found: {}", task_id))?;
+            .ok_or_else(|| anyhow::anyhow!("Task not found: {task_id}"))?;
         Ok(tx.subscribe())
     }
 

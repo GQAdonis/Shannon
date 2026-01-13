@@ -136,7 +136,7 @@ impl ConfigValidator {
             (DeploymentMode::Mesh, WorkflowConfig::Temporal { .. }) |
             (DeploymentMode::MeshCloud, WorkflowConfig::Temporal { .. }) => {
                 Err(ConfigurationError::incompatible(
-                    format!("SHANNON_MODE={}", mode),
+                    format!("SHANNON_MODE={mode}"),
                     "WORKFLOW_ENGINE=temporal",
                     "Mesh sync modes are local-first and require the Durable workflow engine. \
                     Set WORKFLOW_ENGINE=durable.",
@@ -189,7 +189,7 @@ impl ConfigValidator {
             (DeploymentMode::Hybrid | DeploymentMode::Mesh | DeploymentMode::MeshCloud, 
              DeploymentDatabaseConfig::PostgreSQL { .. }) => {
                 Err(ConfigurationError::incompatible(
-                    format!("SHANNON_MODE={}", mode),
+                    format!("SHANNON_MODE={mode}"),
                     "DATABASE_DRIVER=postgresql",
                     "Local-first modes (hybrid, mesh) require local embedded storage. \
                     Use DATABASE_DRIVER=embedded or DATABASE_DRIVER=sqlite.",
@@ -208,8 +208,8 @@ impl ConfigValidator {
     ) -> ConfigResult<()> {
         match (mode, sync) {
             // Cloud mode shouldn't have P2P sync enabled
-            (DeploymentMode::Cloud, SyncConfig::Mesh { .. }) |
-            (DeploymentMode::Cloud, SyncConfig::MeshCloud { .. }) => {
+            (DeploymentMode::Cloud,
+SyncConfig::Mesh { .. } | SyncConfig::MeshCloud { .. }) => {
                 Err(ConfigurationError::incompatible(
                     "SHANNON_MODE=cloud",
                     "SYNC_MODE=mesh",
@@ -244,20 +244,15 @@ impl ConfigValidator {
     /// Validate LLM configuration.
     pub fn validate_llm_config(config: &AppConfig) -> ConfigResult<()> {
         let has_anthropic = config.providers.anthropic.api_key.as_ref()
-            .map(|k| !k.is_empty())
-            .unwrap_or(false);
+            .is_some_and(|k| !k.is_empty());
         let has_openai = config.providers.openai.api_key.as_ref()
-            .map(|k| !k.is_empty())
-            .unwrap_or(false);
+            .is_some_and(|k| !k.is_empty());
         let has_google = config.providers.google.api_key.as_ref()
-            .map(|k| !k.is_empty())
-            .unwrap_or(false);
+            .is_some_and(|k| !k.is_empty());
         let has_groq = config.providers.groq.api_key.as_ref()
-            .map(|k| !k.is_empty())
-            .unwrap_or(false);
+            .is_some_and(|k| !k.is_empty());
         let has_xai = config.providers.xai.api_key.as_ref()
-            .map(|k| !k.is_empty())
-            .unwrap_or(false);
+            .is_some_and(|k| !k.is_empty());
 
         if !has_anthropic && !has_openai && !has_google && !has_groq && !has_xai {
             return Err(ConfigurationError::missing_required(
