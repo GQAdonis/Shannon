@@ -192,6 +192,7 @@ pub struct CacheStats {
 mod tests {
     use super::*;
     use serde_json::json;
+    use tokio::time::Duration;
 
     #[tokio::test]
     async fn test_cache_put_and_get() {

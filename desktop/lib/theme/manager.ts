@@ -9,7 +9,7 @@ import { AppearanceSettings, CustomTheme } from "@/lib/shannon/settings-v2";
 export type ThemeMode = "light" | "dark" | "auto";
 
 export class ThemeManager {
-    private mediaQuery: MediaQuery | null = null;
+    private mediaQuery: MediaQueryList | null = null;
 
     constructor() {
         if (typeof window !== "undefined") {
@@ -46,10 +46,11 @@ export class ThemeManager {
             case "dark":
                 root.classList.add("dark");
                 break;
-            case "auto":
+            case "auto": {
                 const prefersDark = this.mediaQuery?.matches ?? false;
                 root.classList.toggle("dark", prefersDark);
                 break;
+            }
         }
     }
 

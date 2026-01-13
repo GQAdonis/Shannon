@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -25,11 +25,7 @@ export default function ProvidersPage() {
     const [providers, setProviders] = useState<ProviderSettings[]>([]);
     const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
 
-    useEffect(() => {
-        loadSettings();
-    }, []);
-
-    const loadSettings = async () => {
+    const loadSettings = useCallback(async () => {
         try {
             const settings = await getAppSettings();
             setProviders(settings.providers);
@@ -39,7 +35,11 @@ export default function ProvidersPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        loadSettings();
+    }, [loadSettings]);
 
     const handleSave = async () => {
         setSaving(true);

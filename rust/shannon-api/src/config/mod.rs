@@ -16,7 +16,7 @@
 //!
 //! # Deployment Modes
 //!
-//! - **Embedded**: Self-contained desktop/mobile with Durable + `SurrealDB`
+//! - **Embedded**: Self-contained desktop/mobile with Durable + Hybrid (`SQLite` + `USearch`)
 //! - **Cloud**: Multi-tenant with Temporal + `PostgreSQL`
 //! - **Hybrid**: Local-first with optional cloud sync
 //! - **Mesh**: P2P sync between devices
@@ -37,8 +37,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Main application configuration.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AppConfig {
     /// Deployment configuration (mode, workflow engine, database driver).
     #[serde(default)]
@@ -71,7 +70,6 @@ pub struct AppConfig {
     #[serde(default)]
     pub logging: LoggingConfig,
 }
-
 
 impl AppConfig {
     /// Load configuration from environment and config files.

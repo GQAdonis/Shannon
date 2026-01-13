@@ -130,9 +130,8 @@ impl WorkflowEngine {
     /// Create a workflow engine from configuration.
     pub async fn from_config(
         config: &WorkflowConfig,
-        #[cfg(feature = "embedded")]
-        #[cfg(feature = "embedded")]
-        event_log: Option<Box<dyn durable_shannon::EventLog>>,
+        event_bus: super::embedded::event_bus::EventBus,
+        #[cfg(feature = "embedded")] event_log: Option<Box<dyn durable_shannon::EventLog>>,
     ) -> anyhow::Result<Self> {
         match config {
             WorkflowConfig::Durable {
@@ -143,6 +142,7 @@ impl WorkflowEngine {
                 let engine = DurableEngine::new(
                     wasm_dir.clone(),
                     *max_concurrent,
+                    event_bus,
                     #[cfg(feature = "embedded")]
                     event_log,
                 )
@@ -219,7 +219,6 @@ impl WorkflowEngine {
 ///
 /// When the `embedded` feature is enabled, this integrates with `durable-shannon`
 /// for WASM-based workflow execution with durable state.
-#[derive(Debug)]
 pub struct DurableEngine {
     /// Directory containing WASM workflow patterns.
     _wasm_dir: PathBuf,
@@ -229,9 +228,21 @@ pub struct DurableEngine {
     tasks: Arc<RwLock<HashMap<String, DurableTask>>>,
     /// Event channels for task updates.
     channels: Arc<RwLock<HashMap<String, broadcast::Sender<TaskEvent>>>>,
+    /// Event bus for real-time workflow event streaming.
+    event_bus: super::embedded::event_bus::EventBus,
     /// The actual embedded worker (only available when embedded feature is on).
     #[cfg(feature = "embedded")]
     worker: Arc<EmbeddedWorker<Box<dyn durable_shannon::EventLog>>>,
+}
+
+impl std::fmt::Debug for DurableEngine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DurableEngine")
+            .field("max_concurrent", &self.max_concurrent)
+            .field("tasks_count", &self.tasks.try_read().map(|t| t.len()))
+            .field("channels_count", &self.channels.try_read().map(|c| c.len()))
+            .finish()
+    }
 }
 
 /// Internal task representation for the Durable engine.
@@ -265,6 +276,7 @@ impl DurableEngine {
     pub async fn new(
         wasm_dir: PathBuf,
         max_concurrent: usize,
+        event_bus: super::embedded::event_bus::EventBus,
         #[cfg(feature = "embedded")] event_log: Option<Box<dyn durable_shannon::EventLog>>,
     ) -> anyhow::Result<Self> {
         let timer = OpTimer::new("durable_engine", "initialization");
@@ -306,6 +318,7 @@ impl DurableEngine {
                     max_concurrent,
                     tasks: Arc::new(RwLock::new(HashMap::new())),
                     channels: Arc::new(RwLock::new(HashMap::new())),
+                    event_bus,
                     worker: Arc::new(worker),
                 })
             }
@@ -326,6 +339,7 @@ impl DurableEngine {
                 max_concurrent,
                 tasks: Arc::new(RwLock::new(HashMap::new())),
                 channels: Arc::new(RwLock::new(HashMap::new())),
+                event_bus,
             })
         }
     }
@@ -559,10 +573,22 @@ impl WorkflowEngineImpl for DurableEngine {
                     workflow_id
                 );
 
+                // Emit WorkflowStarted event
+                let workflow_started = super::embedded::event_bus::WorkflowEvent::WorkflowStarted {
+                    workflow_id: workflow_id.clone(),
+                    pattern_type: task.strategy.to_string(),
+                    timestamp: chrono::Utc::now(),
+                };
+                if let Err(e) = self.event_bus.broadcast(&workflow_id, workflow_started) {
+                    tracing::warn!("Failed to broadcast WorkflowStarted event: {}", e);
+                }
+
                 let _worker_ref = self.worker.clone();
                 let task_id_clone = task_id.clone();
+                let workflow_id_clone = workflow_id.clone();
                 let tx_clone = tx.clone();
                 let tasks_ref = self.tasks.clone();
+                let event_bus = self.event_bus.clone();
 
                 // Spawn monitoring task to pipe events from worker to our channel
                 tokio::spawn(async move {
@@ -583,10 +609,19 @@ impl WorkflowEngineImpl for DurableEngine {
                                 t.result = Some(output.to_string());
                             }
 
+                            // Emit WorkflowCompleted event
+                            let workflow_completed =
+                                super::embedded::event_bus::WorkflowEvent::WorkflowCompleted {
+                                    workflow_id: workflow_id_clone.clone(),
+                                    output: output.to_string(),
+                                    timestamp: chrono::Utc::now(),
+                                };
+                            let _ = event_bus.broadcast(&workflow_id_clone, workflow_completed);
+
                             let _ = tx_clone.send(TaskEvent::Completed {
                                 task_id: task_id_clone,
                                 result: TaskResult {
-                                    task_id: "TODO".to_string(),
+                                    task_id: workflow_id_clone,
                                     state: TaskState::Completed,
                                     content: Some(output.to_string()),
                                     data: None,
@@ -609,6 +644,15 @@ impl WorkflowEngineImpl for DurableEngine {
                                 t.state = TaskState::Failed;
                                 t.error = Some(e.to_string());
                             }
+
+                            // Emit WorkflowFailed event
+                            let workflow_failed =
+                                super::embedded::event_bus::WorkflowEvent::WorkflowFailed {
+                                    workflow_id: workflow_id_clone.clone(),
+                                    error: e.to_string(),
+                                    timestamp: chrono::Utc::now(),
+                                };
+                            let _ = event_bus.broadcast(&workflow_id_clone, workflow_failed);
 
                             let _ = tx_clone.send(TaskEvent::Failed {
                                 task_id: task_id_clone,
@@ -687,12 +731,27 @@ impl WorkflowEngineImpl for DurableEngine {
         let mut tasks = self.tasks.write().await;
         if let Some(task) = tasks.get_mut(task_id) {
             if task.state == TaskState::Running || task.state == TaskState::Pending {
+                let workflow_id = task.workflow_id.clone();
+
+                // Emit WorkflowCancelling event
+                let cancelling_event =
+                    super::embedded::event_bus::WorkflowEvent::WorkflowCancelling {
+                        workflow_id: workflow_id.clone(),
+                        timestamp: chrono::Utc::now(),
+                    };
+                let _ = self.event_bus.broadcast(&workflow_id, cancelling_event);
+
                 task.state = TaskState::Cancelled;
                 task.message = reason.map(String::from);
                 tracing::info!("Cancelled task {}: {:?}", task_id, reason);
 
-                // TODO: Emit WORKFLOW_CANCELLING and WORKFLOW_CANCELLED events (T123-T124)
-                // These should be emitted at the gateway/API level with proper NormalizedEvent channels
+                // Emit WorkflowCancelled event
+                let cancelled_event =
+                    super::embedded::event_bus::WorkflowEvent::WorkflowCancelled {
+                        workflow_id: workflow_id.clone(),
+                        timestamp: chrono::Utc::now(),
+                    };
+                let _ = self.event_bus.broadcast(&workflow_id, cancelled_event);
 
                 return Ok(true);
             }
@@ -704,12 +763,25 @@ impl WorkflowEngineImpl for DurableEngine {
         let mut tasks = self.tasks.write().await;
         if let Some(task) = tasks.get_mut(task_id) {
             if task.state == TaskState::Running {
+                let workflow_id = task.workflow_id.clone();
+
+                // Emit WorkflowPausing event
+                let pausing_event = super::embedded::event_bus::WorkflowEvent::WorkflowPausing {
+                    workflow_id: workflow_id.clone(),
+                    timestamp: chrono::Utc::now(),
+                };
+                let _ = self.event_bus.broadcast(&workflow_id, pausing_event);
+
                 task.state = TaskState::Paused;
                 task.message = reason.map(String::from);
                 tracing::info!("Paused task {}: {:?}", task_id, reason);
 
-                // TODO: Emit WORKFLOW_PAUSING and WORKFLOW_PAUSED events (T120-T121)
-                // These should be emitted at the gateway/API level with proper NormalizedEvent channels
+                // Emit WorkflowPaused event
+                let paused_event = super::embedded::event_bus::WorkflowEvent::WorkflowPaused {
+                    workflow_id: workflow_id.clone(),
+                    timestamp: chrono::Utc::now(),
+                };
+                let _ = self.event_bus.broadcast(&workflow_id, paused_event);
 
                 return Ok(true);
             }
@@ -721,12 +793,18 @@ impl WorkflowEngineImpl for DurableEngine {
         let mut tasks = self.tasks.write().await;
         if let Some(task) = tasks.get_mut(task_id) {
             if task.state == TaskState::Paused {
+                let workflow_id = task.workflow_id.clone();
+
+                // Emit WorkflowResuming event
+                let resuming_event = super::embedded::event_bus::WorkflowEvent::WorkflowResuming {
+                    workflow_id: workflow_id.clone(),
+                    timestamp: chrono::Utc::now(),
+                };
+                let _ = self.event_bus.broadcast(&workflow_id, resuming_event);
+
                 task.state = TaskState::Running;
                 task.message = reason.map(String::from);
                 tracing::info!("Resumed task {}: {:?}", task_id, reason);
-
-                // TODO: Emit WORKFLOW_RESUMED event (T122)
-                // This should be emitted at the gateway/API level with proper NormalizedEvent channels
 
                 return Ok(true);
             }

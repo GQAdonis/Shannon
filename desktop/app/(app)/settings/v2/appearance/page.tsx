@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -50,11 +50,7 @@ export default function AppearancePage() {
         sidebar_position: "left",
     });
 
-    useEffect(() => {
-        loadSettings();
-    }, []);
-
-    const loadSettings = async () => {
+    const loadSettings = useCallback(async () => {
         try {
             const settings = await getAppSettings();
             setAppearance(settings.appearance);
@@ -68,7 +64,11 @@ export default function AppearancePage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [toast]);
+
+    useEffect(() => {
+        loadSettings();
+    }, [loadSettings]);
 
     const handleSave = async () => {
         setSaving(true);
@@ -134,7 +134,7 @@ export default function AppearancePage() {
                     <RadioGroup
                         value={typeof appearance.theme === "string" ? appearance.theme : "custom"}
                         onValueChange={(value) =>
-                            setAppearance({ ...appearance, theme: value as any })
+                            setAppearance({ ...appearance, theme: value as 'light' | 'dark' | 'auto' })
                         }
                     >
                         <div className="grid grid-cols-3 gap-4">

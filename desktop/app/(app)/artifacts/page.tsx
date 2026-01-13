@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Artifact, ArtifactType, ArtifactFilter } from '@/lib/artifacts/types';
 import { artifactService } from '@/lib/artifacts/database';
 import { ArtifactRenderer } from '@/components/artifacts/artifact-renderer';
@@ -61,7 +61,7 @@ export default function ArtifactsPage() {
   });
 
   // Load artifacts
-  const loadArtifacts = async () => {
+  const loadArtifacts = useCallback(async () => {
     setIsLoading(true);
     try {
       const filterWithType: ArtifactFilter = {
@@ -78,22 +78,21 @@ export default function ArtifactsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [filter, search, selectedType]);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       const statsData = await artifactService.getStats();
       setStats(statsData);
     } catch (error) {
       console.error('Failed to load stats:', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadArtifacts();
     loadStats();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, search, selectedType]);
+  }, [loadArtifacts, loadStats]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this artifact?')) {

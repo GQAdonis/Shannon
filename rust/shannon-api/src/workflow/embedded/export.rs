@@ -223,8 +223,8 @@ mod tests {
         assert!(md.contains("## Input"));
     }
 
-    #[test]
-    fn test_sanitize_openai_key() {
+    #[tokio::test]
+    async fn test_sanitize_openai_key() {
         let mgr = ExportManager::new(Arc::new(WorkflowStore::new(":memory:").await.unwrap()));
 
         let text = "My key is sk-proj1234567890123456789012345678901234567890123456";
@@ -234,8 +234,8 @@ mod tests {
         assert!(sanitized.contains("***REDACTED***"));
     }
 
-    #[test]
-    fn test_sanitize_anthropic_key() {
+    #[tokio::test]
+    async fn test_sanitize_anthropic_key() {
         let mgr = ExportManager::new(Arc::new(WorkflowStore::new(":memory:").await.unwrap()));
 
         let text = "Key: sk-ant-api03-aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789aBcDeFgHiJkLmNoP";

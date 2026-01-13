@@ -13,17 +13,17 @@ use super::AppConfig;
 ///
 /// | Mode     | Workflow Engine | Database   | Valid |
 /// |----------|----------------|------------|-------|
-/// | embedded | durable        | surrealdb  | YES   |
+/// | embedded | durable        | embedded   | YES   |
 /// | embedded | durable        | sqlite     | YES   |
 /// | embedded | durable        | postgresql | NO    |
 /// | embedded | temporal       | any        | NO    |
 /// | cloud    | temporal       | postgresql | YES   |
-/// | cloud    | temporal       | surrealdb  | NO    |
+/// | cloud    | temporal       | embedded   | NO    |
 /// | cloud    | durable        | any        | NO    |
-/// | hybrid   | durable        | surrealdb  | YES   |
+/// | hybrid   | durable        | embedded   | YES   |
 /// | hybrid   | temporal       | any        | NO    |
-/// | mesh     | durable        | surrealdb  | YES   |
-/// | mesh-cloud | durable      | surrealdb  | YES   |
+/// | mesh     | durable        | embedded   | YES   |
+/// | mesh-cloud | durable      | embedded   | YES   |
 #[derive(Debug)]
 pub struct ConfigValidator;
 
@@ -334,7 +334,7 @@ SyncConfig::Mesh { .. } | SyncConfig::MeshCloud { .. }) => {
     #[cfg(not(feature = "embedded"))]
     pub fn validate_feature_flags_for_embedded() -> ConfigResult<()> {
         Err(ConfigurationError::feature_unavailable(
-            "Embedded mode (SurrealDB + Durable)",
+            "Embedded mode (Hybrid SQLite+USearch + Durable)",
             "The 'embedded' feature is not enabled in this build",
             "Rebuild with --features embedded for local mode, or use \
             SHANNON_MODE=cloud with --features grpc",
@@ -363,11 +363,11 @@ mod tests {
     // ===== VALID COMBINATIONS =====
 
     #[test]
-    fn test_embedded_durable_surrealdb_valid() {
+    fn test_embedded_durable_hybrid_valid() {
         let config = create_test_config(
             DeploymentMode::Embedded,
             WorkflowConfig::default(), // Durable
-            DeploymentDatabaseConfig::default(), // SurrealDB
+            DeploymentDatabaseConfig::default(), // Embedded (Hybrid SQLite+USearch)
         );
         assert!(ConfigValidator::validate(&config).is_ok());
     }
@@ -402,7 +402,7 @@ mod tests {
     }
 
     #[test]
-    fn test_hybrid_durable_surrealdb_valid() {
+    fn test_hybrid_durable_embedded_valid() {
         let config = create_test_config(
             DeploymentMode::Hybrid,
             WorkflowConfig::default(),
@@ -412,7 +412,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mesh_durable_surrealdb_valid() {
+    fn test_mesh_durable_embedded_valid() {
         let mut config = create_test_config(
             DeploymentMode::Mesh,
             WorkflowConfig::default(),
@@ -467,7 +467,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cloud_surrealdb_invalid() {
+    fn test_cloud_embedded_db_invalid() {
         let config = create_test_config(
             DeploymentMode::Cloud,
             WorkflowConfig::Temporal {
@@ -475,12 +475,12 @@ mod tests {
                 namespace: "test".to_string(),
                 task_queue: "test-queue".to_string(),
             },
-            DeploymentDatabaseConfig::default(), // SurrealDB
+            DeploymentDatabaseConfig::default(), // Embedded
         );
         let err = ConfigValidator::validate(&config).unwrap_err();
         let msg = err.to_string();
         assert!(msg.contains("cloud"));
-        assert!(msg.contains("surrealdb") || msg.contains("SurrealDB"));
+        assert!(msg.contains("embedded"));
         assert!(msg.contains("PostgreSQL"));
     }
 

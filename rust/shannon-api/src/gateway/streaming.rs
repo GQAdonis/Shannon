@@ -102,134 +102,93 @@ impl TaskEvent {
 }
 
 /// Stream task events via SSE.
+///
+/// This endpoint subscribes to the EventBus for real-time workflow events
+/// and streams them to the client via Server-Sent Events (SSE).
 pub async fn stream_task_events(
     State(state): State<AppState>,
     Path(task_id): Path<String>,
 ) -> impl IntoResponse {
+    // Get workflow_id from task - for now assume task_id maps to workflow_id
+    // In production, you'd look this up from the task registry
+    let workflow_id = format!("durable-{}", task_id);
+
+    // Subscribe to workflow events from the event bus
+    let mut event_rx = state.event_bus.subscribe(&workflow_id);
+
     // Create a stream of events for this task
     let stream = async_stream::stream! {
-        let mut interval = tokio::time::interval(Duration::from_secs(1));
-        let mut iteration = 0u8;
-        
-        // Check if task exists
-        if let Some(ref redis) = state.redis {
-            let mut redis = redis.clone();
-            let key = format!("task:{task_id}");
-            
-            if let Ok(Some(_)) = redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await {
-                // Task exists, start streaming
-                yield Ok::<_, Infallible>(Event::default()
-                    .event("connected")
-                    .data(serde_json::json!({
-                        "task_id": task_id,
-                        "message": "Connected to task stream"
-                    }).to_string()));
-            } else {
-                // Task not found
-                yield Ok(Event::default()
-                    .event("error")
-                    .data(serde_json::json!({
-                        "error": "not_found",
-                        "message": format!("Task {} not found", task_id)
-                    }).to_string()));
-                return;
-            }
-        } else {
-            // No Redis, just acknowledge connection
-            yield Ok::<_, Infallible>(Event::default()
-                .event("connected")
-                .data(serde_json::json!({
-                    "task_id": task_id,
-                    "message": "Connected (no persistence)"
-                }).to_string()));
-        }
+        // Send initial connection message
+        yield Ok::<_, Infallible>(Event::default()
+            .event("connected")
+            .data(serde_json::json!({
+                "task_id": task_id,
+                "workflow_id": workflow_id,
+                "message": "Connected to workflow event stream"
+            }).to_string()));
 
-        // Poll for task updates
+        // Stream events from the event bus
         loop {
-            interval.tick().await;
-            iteration = iteration.saturating_add(1);
+            match event_rx.recv().await {
+                Ok(workflow_event) => {
+                    // Convert WorkflowEvent to SSE Event
+                    let event_type = match &workflow_event {
+                        crate::workflow::embedded::event_bus::WorkflowEvent::WorkflowStarted { .. } => "workflow.started",
+                        crate::workflow::embedded::event_bus::WorkflowEvent::WorkflowStatusChanged { .. } => "workflow.status_changed",
+                        crate::workflow::embedded::event_bus::WorkflowEvent::WorkflowCompleted { .. } => "workflow.completed",
+                        crate::workflow::embedded::event_bus::WorkflowEvent::WorkflowFailed { .. } => "workflow.failed",
+                        crate::workflow::embedded::event_bus::WorkflowEvent::WorkflowPausing { .. } => "workflow.pausing",
+                        crate::workflow::embedded::event_bus::WorkflowEvent::WorkflowPaused { .. } => "workflow.paused",
+                        crate::workflow::embedded::event_bus::WorkflowEvent::WorkflowResuming { .. } => "workflow.resuming",
+                        crate::workflow::embedded::event_bus::WorkflowEvent::WorkflowCancelling { .. } => "workflow.cancelling",
+                        crate::workflow::embedded::event_bus::WorkflowEvent::WorkflowCancelled { .. } => "workflow.cancelled",
+                        crate::workflow::embedded::event_bus::WorkflowEvent::ActivityScheduled { .. } => "activity.scheduled",
+                        crate::workflow::embedded::event_bus::WorkflowEvent::ActivityStarted { .. } => "activity.started",
+                        crate::workflow::embedded::event_bus::WorkflowEvent::ActivityCompleted { .. } => "activity.completed",
+                        crate::workflow::embedded::event_bus::WorkflowEvent::ActivityFailed { .. } => "activity.failed",
+                        crate::workflow::embedded::event_bus::WorkflowEvent::LlmRequest { .. } => "llm.request",
+                        crate::workflow::embedded::event_bus::WorkflowEvent::LlmPartial { .. } => "llm.partial",
+                        crate::workflow::embedded::event_bus::WorkflowEvent::LlmResponse { .. } => "llm.response",
+                        crate::workflow::embedded::event_bus::WorkflowEvent::ToolExecutionStarted { .. } => "tool.started",
+                        crate::workflow::embedded::event_bus::WorkflowEvent::ToolExecutionCompleted { .. } => "tool.completed",
+                        crate::workflow::embedded::event_bus::WorkflowEvent::Progress { .. } => "progress",
+                        crate::workflow::embedded::event_bus::WorkflowEvent::CheckpointCreated { .. } => "checkpoint.created",
+                    };
 
-            if let Some(ref redis) = state.redis {
-                let mut redis = redis.clone();
-                let key = format!("task:{task_id}");
-                
-                match redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await {
-                    Ok(Some(data)) => {
-                        if let Ok(task) = serde_json::from_str::<serde_json::Value>(&data) {
-                            let status = task["status"].as_str().unwrap_or("pending");
-                            let progress = &task["progress"];
-                            
-                            // Send progress update
-                            let event = TaskEvent::progress(
-                                &task_id,
-                                progress["percent"].as_u64().unwrap_or(0) as u8,
-                                progress["current_step"].as_str(),
-                            );
-                            
-                            yield Ok(Event::default()
-                                .event(&event.event_type)
-                                .data(serde_json::to_string(&event).unwrap_or_default()));
+                    yield Ok(Event::default()
+                        .event(event_type)
+                        .data(serde_json::to_string(&workflow_event).unwrap_or_default()));
 
-                            // Check for terminal states
-                            if status == "completed" || status == "failed" || status == "cancelled" {
-                                let final_event = TaskEvent::new(
-                                    &task_id,
-                                    status,
-                                    serde_json::json!({
-                                        "output": task["output"],
-                                        "error": task["error"]
-                                    }),
-                                );
-                                
-                                yield Ok(Event::default()
-                                    .event(&final_event.event_type)
-                                    .data(serde_json::to_string(&final_event).unwrap_or_default()));
-                                
-                                // Send done event and close
-                                yield Ok(Event::default()
-                                    .event("done")
-                                    .data(serde_json::json!({"task_id": task_id}).to_string()));
-                                
-                                break;
-                            }
-                        }
-                    }
-                    Ok(None) => {
+                    // Check for terminal events
+                    if matches!(workflow_event,
+                        crate::workflow::embedded::event_bus::WorkflowEvent::WorkflowCompleted { .. } |
+                        crate::workflow::embedded::event_bus::WorkflowEvent::WorkflowFailed { .. } |
+                        crate::workflow::embedded::event_bus::WorkflowEvent::WorkflowCancelled { .. }
+                    ) {
+                        // Send done event and close
                         yield Ok(Event::default()
-                            .event("error")
-                            .data(serde_json::json!({
-                                "error": "task_deleted",
-                                "message": "Task was deleted"
-                            }).to_string()));
+                            .event("done")
+                            .data(serde_json::json!({"task_id": task_id, "workflow_id": workflow_id}).to_string()));
                         break;
                     }
-                    Err(e) => {
-                        tracing::error!("Redis error while streaming: {}", e);
-                    }
                 }
-            } else {
-                // Simulate progress without Redis (for testing)
-                let event = TaskEvent::progress(&task_id, iteration.min(100), Some("Processing..."));
-                yield Ok(Event::default()
-                    .event(&event.event_type)
-                    .data(serde_json::to_string(&event).unwrap_or_default()));
-
-                if iteration >= 100 {
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                    // Client fell behind, warn but continue
+                    tracing::warn!("Client lagged, skipped {} events for workflow {}", skipped, workflow_id);
+                    yield Ok(Event::default()
+                        .event("warning")
+                        .data(serde_json::json!({
+                            "message": format!("Skipped {} events due to slow connection", skipped)
+                        }).to_string()));
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                    // Channel closed, workflow ended
+                    tracing::debug!("Event channel closed for workflow {}", workflow_id);
                     yield Ok(Event::default()
                         .event("done")
-                        .data(serde_json::json!({"task_id": task_id}).to_string()));
+                        .data(serde_json::json!({"task_id": task_id, "workflow_id": workflow_id}).to_string()));
                     break;
                 }
-            }
-
-            // Safety limit
-            if iteration > 250 {
-                yield Ok(Event::default()
-                    .event("timeout")
-                    .data(serde_json::json!({
-                        "message": "Stream timeout reached"
-                    }).to_string()));
-                break;
             }
         }
     };
@@ -289,19 +248,19 @@ async fn handle_websocket(mut socket: WebSocket, state: AppState, task_id: Strin
                     _ => {}
                 }
             }
-            
+
             // Send periodic updates
             _ = interval.tick() => {
                 iteration = iteration.saturating_add(1);
-                
+
                 if let Some(ref redis) = state.redis {
                     let mut redis = redis.clone();
                     let key = format!("task:{task_id}");
-                    
+
                     if let Ok(Some(data)) = redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await {
                         if let Ok(task) = serde_json::from_str::<serde_json::Value>(&data) {
                             let status = task["status"].as_str().unwrap_or("pending");
-                            
+
                             let update = serde_json::json!({
                                 "type": "progress",
                                 "task_id": task_id,
@@ -309,11 +268,11 @@ async fn handle_websocket(mut socket: WebSocket, state: AppState, task_id: Strin
                                 "progress": task["progress"],
                                 "timestamp": chrono::Utc::now().to_rfc3339()
                             });
-                            
+
                             if socket.send(Message::Text(update.to_string().into())).await.is_err() {
                                 break;
                             }
-                            
+
                             if status == "completed" || status == "failed" || status == "cancelled" {
                                 let done = serde_json::json!({
                                     "type": "done",
@@ -335,7 +294,7 @@ async fn handle_websocket(mut socket: WebSocket, state: AppState, task_id: Strin
                         break;
                     }
                 }
-                
+
                 // Safety limit
                 if iteration > 250 {
                     let timeout = serde_json::json!({
@@ -356,7 +315,7 @@ async fn handle_websocket(mut socket: WebSocket, state: AppState, task_id: Strin
 pub async fn stream_global_events(State(state): State<AppState>) -> impl IntoResponse {
     let stream = async_stream::stream! {
         let mut interval = tokio::time::interval(Duration::from_secs(5));
-        
+
         yield Ok::<_, Infallible>(Event::default()
             .event("connected")
             .data(serde_json::json!({
@@ -365,7 +324,7 @@ pub async fn stream_global_events(State(state): State<AppState>) -> impl IntoRes
 
         loop {
             interval.tick().await;
-            
+
             // Send heartbeat
             yield Ok(Event::default()
                 .event("heartbeat")

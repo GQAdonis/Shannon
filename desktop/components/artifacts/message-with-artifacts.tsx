@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { artifactDetector } from '@/lib/artifacts/detector';
 import { artifactService } from '@/lib/artifacts/database';
 import { Artifact } from '@/lib/artifacts/types';
@@ -28,45 +28,49 @@ export function MessageWithArtifacts({
   className,
 }: MessageWithArtifactsProps) {
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
-  const [cleanContent, setCleanContent] = useState(content);
 
-  const detectAndSaveArtifacts = async () => {
-    // Detect artifacts in message content
-    const detected = artifactDetector.detect(content, messageId, conversationId);
-
-    if (detected.length > 0) {
-      // Save artifacts to database
-      try {
-        await artifactService.saveMany(detected);
-        setArtifacts(detected);
-
-        // Remove artifact markers from content for cleaner display
-        let cleaned = content;
-
-        // Remove Cherry Studio format
-        cleaned = cleaned.replace(/```artifact[^`]*```/g, '');
-
-        // Remove Claude format
-        cleaned = cleaned.replace(/<antArtifact[^>]*>[\s\S]*?<\/antArtifact>/g, '');
-
-        // Remove A2UI format
-        cleaned = cleaned.replace(/\[A2UI:[^\]]+\][\s\S]*?\[\/A2UI\]/g, '');
-
-        setCleanContent(cleaned.trim());
-      } catch (error) {
-        console.error('Failed to save artifacts:', error);
-        // Still show artifacts even if saving fails
-        setArtifacts(detected);
-      }
-    } else {
-      setCleanContent(content);
-    }
-  };
-
-  useEffect(() => {
-    detectAndSaveArtifacts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Detect artifacts from content (pure computation)
+  const detectedArtifacts = useMemo(() => {
+    return artifactDetector.detect(content, messageId, conversationId);
   }, [content, messageId, conversationId]);
+
+  // Clean content by removing artifact markers
+  const cleanContent = useMemo(() => {
+    if (detectedArtifacts.length === 0) {
+      return content;
+    }
+
+    let cleaned = content;
+
+    // Remove Cherry Studio format
+    cleaned = cleaned.replace(/```artifact[^`]*```/g, '');
+
+    // Remove Claude format
+    cleaned = cleaned.replace(/<antArtifact[^>]*>[\s\S]*?<\/antArtifact>/g, '');
+
+    // Remove A2UI format
+    cleaned = cleaned.replace(/\[A2UI:[^\]]+\][\s\S]*?\[\/A2UI\]/g, '');
+
+    return cleaned.trim();
+  }, [content, detectedArtifacts.length]);
+
+  // Save artifacts to database (side effect)
+  useEffect(() => {
+    if (detectedArtifacts.length > 0) {
+      artifactService.saveMany(detectedArtifacts)
+        .then(() => {
+          setArtifacts(detectedArtifacts);
+        })
+        .catch((error) => {
+          console.error('Failed to save artifacts:', error);
+          // Still show artifacts even if saving fails
+          setArtifacts(detectedArtifacts);
+        });
+    }
+  }, [detectedArtifacts]);
+
+  // Display detected artifacts immediately, even before they're saved
+  const displayArtifacts = detectedArtifacts.length > 0 ? detectedArtifacts : artifacts;
 
   return (
     <div className={className}>
@@ -80,9 +84,9 @@ export function MessageWithArtifacts({
       )}
 
       {/* Rendered artifacts */}
-      {artifacts.length > 0 && (
+      {displayArtifacts.length > 0 && (
         <div className="space-y-4 mt-4">
-          {artifacts.map((artifact) => (
+          {displayArtifacts.map((artifact) => (
             <ArtifactRenderer key={artifact.id} artifact={artifact} />
           ))}
         </div>

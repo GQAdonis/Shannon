@@ -32,12 +32,12 @@ use crate::config::deployment::WorkflowConfig;
 /// Returns an error if the engine cannot be initialized.
 pub async fn create_engine(
     config: &WorkflowConfig,
-    #[cfg(feature = "embedded")]
-    #[cfg(feature = "embedded")]
-    event_log: Option<Box<dyn durable_shannon::EventLog>>,
+    event_bus: embedded::event_bus::EventBus,
+    #[cfg(feature = "embedded")] event_log: Option<Box<dyn durable_shannon::EventLog>>,
 ) -> anyhow::Result<WorkflowEngine> {
     WorkflowEngine::from_config(
         config,
+        event_bus,
         #[cfg(feature = "embedded")]
         event_log,
     )

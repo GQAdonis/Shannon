@@ -1,7 +1,7 @@
 //! Deployment configuration for Shannon API.
 //!
 //! This module provides configuration for different deployment modes:
-//! - Embedded: Self-contained Tauri desktop/mobile with Durable + `SurrealDB`
+//! - Embedded: Self-contained Tauri desktop/mobile with Durable + Hybrid (`SQLite` + `USearch`)
 //! - Cloud: Multi-tenant with Temporal + `PostgreSQL`
 //! - Hybrid: Local-first with optional cloud sync
 //! - Mesh: P2P sync between devices
@@ -11,8 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// Deployment configuration for the Shannon platform.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DeploymentConfig {
     /// The deployment mode.
     #[serde(default)]
@@ -27,7 +26,6 @@ pub struct DeploymentConfig {
     #[serde(default)]
     pub sync: SyncConfig,
 }
-
 
 impl DeploymentConfig {
     /// Load deployment configuration from environment variables.
@@ -72,7 +70,7 @@ impl DeploymentConfig {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum DeploymentMode {
-    /// Self-contained desktop/mobile app with Durable + `SurrealDB`.
+    /// Self-contained desktop/mobile app with Durable + Hybrid (`SQLite` + `USearch`).
     #[default]
     Embedded,
     /// Multi-tenant cloud deployment with Temporal + `PostgreSQL`.
@@ -191,7 +189,8 @@ impl WorkflowConfig {
                     .unwrap_or_else(|_| default_task_queue()),
             },
             _ => Self::Durable {
-                wasm_dir: std::env::var("DURABLE_WASM_DIR").map_or_else(|_| default_wasm_dir(), PathBuf::from),
+                wasm_dir: std::env::var("DURABLE_WASM_DIR")
+                    .map_or_else(|_| default_wasm_dir(), PathBuf::from),
                 max_concurrent: std::env::var("DURABLE_MAX_CONCURRENT")
                     .ok()
                     .and_then(|s| s.parse().ok())
@@ -230,8 +229,7 @@ impl WorkflowConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "driver", rename_all = "lowercase")]
 pub enum DeploymentDatabaseConfig {
-    /// `SurrealDB` for embedded/desktop deployments.
-    /// Embedded database (`SQLite` + `USearch`) for desktop.
+    /// Embedded database (`SQLite` + `USearch`) for desktop/embedded deployments.
     Embedded {
         /// Path to the database file.
         #[serde(default = "default_embedded_path")]
@@ -292,11 +290,13 @@ impl DeploymentDatabaseConfig {
                 }
             }
             "sqlite" => {
-                let path = std::env::var("SQLITE_PATH").map_or_else(|_| default_sqlite_path(), PathBuf::from);
+                let path = std::env::var("SQLITE_PATH")
+                    .map_or_else(|_| default_sqlite_path(), PathBuf::from);
                 Self::SQLite { path }
             }
             _ => {
-                let path = std::env::var("SHANNON_DB_PATH").map_or_else(|_| default_embedded_path(), PathBuf::from);
+                let path = std::env::var("SHANNON_DB_PATH")
+                    .map_or_else(|_| default_embedded_path(), PathBuf::from);
                 Self::Embedded { path }
             }
         }
@@ -378,7 +378,6 @@ fn default_sync_interval() -> u64 {
     30
 }
 
-
 impl SyncConfig {
     /// Load sync configuration from environment variables.
     pub fn from_env() -> Self {
@@ -389,7 +388,10 @@ impl SyncConfig {
                 device_id: std::env::var("SYNC_DEVICE_ID").ok(),
                 signaling_server: std::env::var("SYNC_SIGNALING_SERVER")
                     .unwrap_or_else(|_| default_signaling_server()),
-                ice_servers: std::env::var("SYNC_ICE_SERVERS").map_or_else(|_| default_ice_servers(), |s| s.split(',').map(String::from).collect()),
+                ice_servers: std::env::var("SYNC_ICE_SERVERS").map_or_else(
+                    |_| default_ice_servers(),
+                    |s| s.split(',').map(String::from).collect(),
+                ),
                 turn_server: TurnServer::from_env(),
                 scope: SyncScope::from_env(),
             },
@@ -397,7 +399,10 @@ impl SyncConfig {
                 device_id: std::env::var("SYNC_DEVICE_ID").ok(),
                 signaling_server: std::env::var("SYNC_SIGNALING_SERVER")
                     .unwrap_or_else(|_| default_signaling_server()),
-                ice_servers: std::env::var("SYNC_ICE_SERVERS").map_or_else(|_| default_ice_servers(), |s| s.split(',').map(String::from).collect()),
+                ice_servers: std::env::var("SYNC_ICE_SERVERS").map_or_else(
+                    |_| default_ice_servers(),
+                    |s| s.split(',').map(String::from).collect(),
+                ),
                 turn_server: TurnServer::from_env(),
                 scope: SyncScope::from_env(),
                 cloud_endpoint: std::env::var("SYNC_CLOUD_ENDPOINT")

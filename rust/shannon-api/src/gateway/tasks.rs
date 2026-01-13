@@ -5,11 +5,12 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
-    Json, Router,
+    Extension, Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::gateway::auth::AuthenticatedUser;
 use crate::logging::OpTimer;
 use crate::AppState;
 
@@ -341,8 +342,13 @@ fn run_to_task_response_from_manager(run: &crate::domain::Run) -> TaskResponse {
 }
 
 /// Submit a new task.
+///
+/// # Authentication
+///
+/// Requires valid authentication. User ID is extracted from JWT token or API key.
 pub async fn submit_task(
     State(state): State<AppState>,
+    Extension(user): Extension<AuthenticatedUser>,
     Json(req): Json<SubmitTaskRequest>,
 ) -> impl IntoResponse {
     let timer = OpTimer::new("gateway", "submit_task");
@@ -504,7 +510,7 @@ pub async fn submit_task(
     let workflow_task = crate::workflow::Task {
         id: task_id.clone(),
         query: req.prompt.clone(),
-        user_id: "default".to_string(), // TODO: Get from auth context
+        user_id: user.user_id.clone(),
         session_id: req.session_id.clone(),
         context: req.metadata.clone().unwrap_or(serde_json::json!({})),
         strategy,
@@ -571,9 +577,8 @@ pub async fn submit_task(
 
                 let mut failed_task = task.clone();
                 failed_task["status"] = serde_json::Value::String("failed".to_string());
-                failed_task["error"] = serde_json::Value::String(format!(
-                    "Failed to submit to workflow engine: {e}"
-                ));
+                failed_task["error"] =
+                    serde_json::Value::String(format!("Failed to submit to workflow engine: {e}"));
 
                 let _ = redis::AsyncCommands::set_ex::<_, _, ()>(
                     &mut redis,
@@ -1058,7 +1063,9 @@ pub async fn get_task_progress(
         let mut redis = redis.clone();
         let key = format!("task:{id}");
 
-        if let Ok(Some(data)) = redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await {
+        if let Ok(Some(data)) =
+            redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await
+        {
             if let Ok(task) = serde_json::from_str::<serde_json::Value>(&data) {
                 let status = match task["status"].as_str().unwrap_or("pending") {
                     "pending" => TaskStatus::Pending,
@@ -1197,7 +1204,9 @@ pub async fn get_task_output(
         let mut redis = redis.clone();
         let key = format!("task:{id}");
 
-        if let Ok(Some(data)) = redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await {
+        if let Ok(Some(data)) =
+            redis::AsyncCommands::get::<_, Option<String>>(&mut redis, &key).await
+        {
             if let Ok(task) = serde_json::from_str::<serde_json::Value>(&data) {
                 let status = task["status"].as_str().unwrap_or("pending");
 

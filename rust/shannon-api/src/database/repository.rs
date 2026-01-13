@@ -1,13 +1,14 @@
 //! Database repository implementations.
 //!
 //! Provides trait-based abstractions for data access that work across
-//! different database backends (`SurrealDB`, `PostgreSQL`, `SQLite`).
+//! different database backends (`PostgreSQL`, `SQLite`, Hybrid `SQLite` + `USearch`).
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 use crate::config::deployment::DeploymentDatabaseConfig;
+use crate::database::knowledge::{Chunk, ChunkWithScore, Document, KnowledgeBase};
 use crate::workflow::task::TokenUsage;
 
 /// Run record stored in the database.
@@ -156,6 +157,62 @@ pub trait MemoryRepository: Send + Sync {
     async fn delete_conversation(&self, conversation_id: &str) -> anyhow::Result<u64>;
 }
 
+/// Repository trait for knowledge base operations.
+#[async_trait]
+pub trait KnowledgeBaseRepository: Send + Sync {
+    /// Create a new knowledge base.
+    async fn create_knowledge_base(&self, kb: &KnowledgeBase) -> anyhow::Result<String>;
+
+    /// Get a knowledge base by ID.
+    async fn get_knowledge_base(&self, id: &str) -> anyhow::Result<Option<KnowledgeBase>>;
+
+    /// List knowledge bases for a user.
+    async fn list_knowledge_bases(
+        &self,
+        user_id: &str,
+        limit: usize,
+        offset: usize,
+    ) -> anyhow::Result<Vec<KnowledgeBase>>;
+
+    /// Update a knowledge base.
+    async fn update_knowledge_base(&self, kb: &KnowledgeBase) -> anyhow::Result<()>;
+
+    /// Delete a knowledge base and all its documents.
+    async fn delete_knowledge_base(&self, id: &str) -> anyhow::Result<bool>;
+
+    /// Create a document in a knowledge base.
+    async fn create_document(&self, doc: &Document) -> anyhow::Result<String>;
+
+    /// Get a document by ID.
+    async fn get_document(&self, id: &str) -> anyhow::Result<Option<Document>>;
+
+    /// List documents in a knowledge base.
+    async fn list_documents(
+        &self,
+        kb_id: &str,
+        limit: usize,
+        offset: usize,
+    ) -> anyhow::Result<Vec<Document>>;
+
+    /// Delete a document and all its chunks.
+    async fn delete_document(&self, id: &str) -> anyhow::Result<bool>;
+
+    /// Create a chunk.
+    async fn create_chunk(&self, chunk: &Chunk) -> anyhow::Result<String>;
+
+    /// Search chunks by embedding similarity.
+    async fn search_chunks(
+        &self,
+        kb_ids: &[String],
+        embedding: &[f32],
+        limit: usize,
+        threshold: f32,
+    ) -> anyhow::Result<Vec<ChunkWithScore>>;
+
+    /// Delete all chunks for a document.
+    async fn delete_chunks_by_document(&self, document_id: &str) -> anyhow::Result<u64>;
+}
+
 /// Database abstraction over different backends.
 #[derive(Clone)]
 pub enum Database {
@@ -199,7 +256,10 @@ impl Database {
                 Ok(Self::SQLite(client))
             }
             // Fallback to in-memory if features not enabled
-            #[expect(unreachable_patterns, reason = "Defensive pattern for forward compatibility with proto changes")]
+            #[expect(
+                unreachable_patterns,
+                reason = "Defensive pattern for forward compatibility with proto changes"
+            )]
             _ => {
                 tracing::warn!(
                     "Database feature not enabled for config {:?}, using in-memory store",
@@ -505,75 +565,158 @@ impl SessionRepository for Database {
     }
 }
 
-// ============================================================================
-// SurrealDB Client (placeholder - requires surrealdb feature)
-// ============================================================================
-
-#[cfg(feature = "embedded")]
-#[derive(Debug, Clone)]
-pub struct SurrealDBClient {
-    // db: surrealdb::Surreal<surrealdb::engine::local::Db>,
-    _placeholder: std::marker::PhantomData<()>,
-}
-
-#[cfg(feature = "embedded")]
-impl SurrealDBClient {
-    pub async fn new(_path: &Path, _namespace: &str, _database: &str) -> anyhow::Result<Self> {
-        // TODO: Implement actual SurrealDB connection
-        Ok(Self {
-            _placeholder: std::marker::PhantomData,
-        })
-    }
-}
-
-#[cfg(feature = "embedded")]
 #[async_trait]
-impl RunRepository for SurrealDBClient {
-    async fn create_run(&self, run: &Run) -> anyhow::Result<String> {
-        Ok(run.id.clone())
+impl KnowledgeBaseRepository for Database {
+    async fn create_knowledge_base(&self, kb: &KnowledgeBase) -> anyhow::Result<String> {
+        match self {
+            #[cfg(feature = "usearch")]
+            Self::Hybrid(client) => client.create_knowledge_base(kb).await,
+            _ => {
+                tracing::warn!("create_knowledge_base not supported in this database mode");
+                Ok(kb.id.clone())
+            }
+        }
     }
-    async fn get_run(&self, _id: &str) -> anyhow::Result<Option<Run>> {
-        Ok(None)
-    }
-    async fn update_run(&self, _run: &Run) -> anyhow::Result<()> {
-        Ok(())
-    }
-    async fn list_runs(
-        &self,
-        _user_id: &str,
-        _limit: usize,
-        _offset: usize,
-    ) -> anyhow::Result<Vec<Run>> {
-        Ok(Vec::new())
-    }
-    async fn delete_run(&self, _id: &str) -> anyhow::Result<bool> {
-        Ok(false)
-    }
-}
 
-#[cfg(feature = "embedded")]
-#[async_trait]
-impl MemoryRepository for SurrealDBClient {
-    async fn store_memory(&self, memory: &Memory) -> anyhow::Result<String> {
-        Ok(memory.id.clone())
+    async fn get_knowledge_base(&self, id: &str) -> anyhow::Result<Option<KnowledgeBase>> {
+        match self {
+            #[cfg(feature = "usearch")]
+            Self::Hybrid(client) => client.get_knowledge_base(id).await,
+            _ => {
+                tracing::warn!("get_knowledge_base not supported in this database mode");
+                Ok(None)
+            }
+        }
     }
-    async fn get_conversation(
+
+    async fn list_knowledge_bases(
         &self,
-        _conversation_id: &str,
-        _limit: usize,
-    ) -> anyhow::Result<Vec<Memory>> {
-        Ok(Vec::new())
+        user_id: &str,
+        limit: usize,
+        offset: usize,
+    ) -> anyhow::Result<Vec<KnowledgeBase>> {
+        match self {
+            #[cfg(feature = "usearch")]
+            Self::Hybrid(client) => client.list_knowledge_bases(user_id, limit, offset).await,
+            _ => {
+                tracing::warn!("list_knowledge_bases not supported in this database mode");
+                Ok(Vec::new())
+            }
+        }
     }
-    async fn search_memories(
+
+    async fn update_knowledge_base(&self, kb: &KnowledgeBase) -> anyhow::Result<()> {
+        match self {
+            #[cfg(feature = "usearch")]
+            Self::Hybrid(client) => client.update_knowledge_base(kb).await,
+            _ => {
+                tracing::warn!("update_knowledge_base not supported in this database mode");
+                Ok(())
+            }
+        }
+    }
+
+    async fn delete_knowledge_base(&self, id: &str) -> anyhow::Result<bool> {
+        match self {
+            #[cfg(feature = "usearch")]
+            Self::Hybrid(client) => client.delete_knowledge_base(id).await,
+            _ => {
+                tracing::warn!("delete_knowledge_base not supported in this database mode");
+                Ok(false)
+            }
+        }
+    }
+
+    async fn create_document(&self, doc: &Document) -> anyhow::Result<String> {
+        match self {
+            #[cfg(feature = "usearch")]
+            Self::Hybrid(client) => client.create_document(doc).await,
+            _ => {
+                tracing::warn!("create_document not supported in this database mode");
+                Ok(doc.id.clone())
+            }
+        }
+    }
+
+    async fn get_document(&self, id: &str) -> anyhow::Result<Option<Document>> {
+        match self {
+            #[cfg(feature = "usearch")]
+            Self::Hybrid(client) => client.get_document(id).await,
+            _ => {
+                tracing::warn!("get_document not supported in this database mode");
+                Ok(None)
+            }
+        }
+    }
+
+    async fn list_documents(
         &self,
-        _embedding: &[f32],
-        _limit: usize,
-        _threshold: f32,
-    ) -> anyhow::Result<Vec<Memory>> {
-        Ok(Vec::new())
+        kb_id: &str,
+        limit: usize,
+        offset: usize,
+    ) -> anyhow::Result<Vec<Document>> {
+        match self {
+            #[cfg(feature = "usearch")]
+            Self::Hybrid(client) => client.list_documents(kb_id, limit, offset).await,
+            _ => {
+                tracing::warn!("list_documents not supported in this database mode");
+                Ok(Vec::new())
+            }
+        }
     }
-    async fn delete_conversation(&self, _conversation_id: &str) -> anyhow::Result<u64> {
-        Ok(0)
+
+    async fn delete_document(&self, id: &str) -> anyhow::Result<bool> {
+        match self {
+            #[cfg(feature = "usearch")]
+            Self::Hybrid(client) => client.delete_document(id).await,
+            _ => {
+                tracing::warn!("delete_document not supported in this database mode");
+                Ok(false)
+            }
+        }
+    }
+
+    async fn create_chunk(&self, chunk: &Chunk) -> anyhow::Result<String> {
+        match self {
+            #[cfg(feature = "usearch")]
+            Self::Hybrid(client) => client.create_chunk(chunk).await,
+            _ => {
+                tracing::warn!("create_chunk not supported in this database mode");
+                Ok(chunk.id.clone())
+            }
+        }
+    }
+
+    async fn search_chunks(
+        &self,
+        kb_ids: &[String],
+        embedding: &[f32],
+        limit: usize,
+        threshold: f32,
+    ) -> anyhow::Result<Vec<ChunkWithScore>> {
+        match self {
+            #[cfg(feature = "usearch")]
+            Self::Hybrid(client) => {
+                client
+                    .search_chunks(kb_ids, embedding, limit, threshold)
+                    .await
+            }
+            _ => {
+                tracing::warn!("search_chunks not supported in this database mode");
+                Ok(Vec::new())
+            }
+        }
+    }
+
+    async fn delete_chunks_by_document(&self, document_id: &str) -> anyhow::Result<u64> {
+        match self {
+            #[cfg(feature = "usearch")]
+            Self::Hybrid(client) => client.delete_chunks_by_document(document_id).await,
+            _ => {
+                tracing::warn!("delete_chunks_by_document not supported in this database mode");
+                Ok(0)
+            }
+        }
     }
 }
 

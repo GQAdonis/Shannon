@@ -9,7 +9,7 @@
 
 #[cfg(all(test, feature = "embedded"))]
 mod e2e_streaming_tests {
-    use futures_util::{SinkExt, StreamExt};
+    use futures::{SinkExt, StreamExt};
     use reqwest::Client;
     use serde_json::{json, Value};
     use std::time::Duration;
@@ -283,7 +283,7 @@ mod e2e_streaming_tests {
         if let Ok(Ok((mut ws_stream, _))) = connection_result {
             // Send a message (if bidirectional is supported)
             let send_result = ws_stream
-                .send(Message::Text(json!({"action": "ping"}).to_string()))
+                .send(Message::Text(json!({"action": "ping"}).to_string().into()))
                 .await;
 
             if send_result.is_ok() {

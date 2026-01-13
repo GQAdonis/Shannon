@@ -117,6 +117,7 @@ rand = { workspace = true }
 regex = "1"
 rayon = "1.10"
 num_cpus = "1.16"
+tiktoken-rs = "0.6"
 
 # Checksums for workflow checkpoints
 crc32fast = "1.4"

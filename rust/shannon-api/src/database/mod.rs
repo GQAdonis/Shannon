@@ -2,7 +2,7 @@
 //!
 //! This module provides a unified interface for database operations that
 //! abstracts over different backend implementations:
-//! - **`SurrealDB`**: Multi-model database for embedded desktop mode
+//! - **Hybrid (`SQLite` + `USearch`)**: For embedded desktop mode
 //! - **`PostgreSQL`**: Relational database for cloud mode
 //! - **`SQLite`**: Lightweight database for mobile mode
 //!
@@ -11,6 +11,7 @@
 
 pub mod encryption;
 pub mod hybrid;
+pub mod knowledge;
 pub mod repository;
 pub mod schema;
 pub mod settings;

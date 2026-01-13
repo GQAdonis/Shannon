@@ -83,11 +83,17 @@ impl Tokenizer for TiktokenTokenizer {
     }
 
     fn encode(&self, text: &str) -> Result<Vec<usize>> {
-        Ok(self.bpe.encode_with_special_tokens(text))
+        Ok(self
+            .bpe
+            .encode_with_special_tokens(text)
+            .into_iter()
+            .map(|t| t as usize)
+            .collect())
     }
 
     fn decode(&self, tokens: &[usize]) -> Result<String> {
-        Ok(self.bpe.decode(tokens.to_vec())?)
+        let u32_tokens: Vec<u32> = tokens.iter().map(|&t| t as u32).collect();
+        Ok(self.bpe.decode(u32_tokens)?)
     }
 }
 

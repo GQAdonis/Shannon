@@ -83,7 +83,7 @@ export function getPlatformModifier(): 'cmd' | 'ctrl' {
 export function getShortcutDisplay(shortcut: string): string {
   const isMac = getPlatformModifier() === 'cmd';
 
-  let display = shortcut
+  const display = shortcut
     .replace('cmd', isMac ? '⌘' : 'Ctrl')
     .replace('ctrl', 'Ctrl')
     .replace('shift', isMac ? '⇧' : 'Shift')

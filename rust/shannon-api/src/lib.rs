@@ -65,6 +65,7 @@ pub mod database;
 pub mod domain;
 pub mod events;
 pub mod gateway;
+pub mod knowledge;
 pub mod llm;
 pub mod logging;
 pub mod runtime;
@@ -78,6 +79,7 @@ use std::sync::Arc;
 use config::AppConfig;
 use llm::orchestrator::Orchestrator;
 use runtime::manager::RunManager;
+use workflow::embedded::event_bus::EventBus;
 use workflow::WorkflowEngine;
 
 /// Application state shared across all handlers.
@@ -97,10 +99,19 @@ pub struct AppState {
     /// In embedded mode, this uses the local Durable engine.
     /// In cloud mode, this uses Temporal via the Go orchestrator.
     pub workflow_engine: WorkflowEngine,
-    /// Embedded Database connection (`SurrealDB` or Hybrid).
+    /// Event bus for real-time workflow event streaming.
+    ///
+    /// Enables pub/sub for workflow events to be consumed by SSE/WebSocket clients.
+    pub event_bus: EventBus,
+    /// Embedded Database connection (Hybrid `SQLite` + `USearch`).
     /// Used for authentication, rate limiting, and direct DB access.
     #[cfg(feature = "embedded")]
     pub database: Option<database::Database>,
+    /// Embedding provider for RAG operations.
+    ///
+    /// Generates embeddings for text using OpenAI or other providers.
+    /// Required for knowledge base search and RAG functionality.
+    pub embedding_provider: Option<Arc<dyn knowledge::EmbeddingProvider>>,
 }
 
 impl std::fmt::Debug for AppState {

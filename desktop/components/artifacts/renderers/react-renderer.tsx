@@ -9,7 +9,7 @@
 import { Sandpack } from '@codesandbox/sandpack-react';
 import { githubLight, sandpackDark } from '@codesandbox/sandpack-themes';
 import { useTheme } from 'next-themes';
-import { Artifact } from '../../lib/artifacts/types';
+import { Artifact } from '@/lib/artifacts/types';
 
 interface ReactRendererProps {
   artifact: Artifact;
@@ -74,7 +74,7 @@ root.render(<App />);
           recompileDelay: 300,
         }}
         {...(onCodeChange && {
-          onCodeUpdate: (newCode) => {
+          onCodeUpdate: (newCode: Record<string, string>) => {
             const appCode = newCode['/App.tsx'];
             if (appCode) {
               onCodeChange(appCode);

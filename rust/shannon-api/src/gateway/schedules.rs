@@ -6,11 +6,12 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    Json,
+    Extension, Json,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::gateway::auth::AuthenticatedUser;
 use crate::scheduler::{CronParser, Schedule, ScheduleExecutor};
 
 /// Request to create a new schedule.
@@ -88,8 +89,13 @@ impl From<Schedule> for ScheduleResponse {
 /// # Endpoint
 ///
 /// `POST /api/v1/schedules`
+///
+/// # Authentication
+///
+/// Requires valid authentication. User ID is extracted from JWT token or API key.
 pub async fn create_schedule(
     State(executor): State<ScheduleExecutor>,
+    Extension(user): Extension<AuthenticatedUser>,
     Json(req): Json<CreateScheduleRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     // Validate cron expression
@@ -103,7 +109,7 @@ pub async fn create_schedule(
     let now = chrono::Utc::now();
     let schedule = Schedule {
         id: Uuid::new_v4().to_string(),
-        user_id: "embedded_user".to_string(), // TODO: Extract from auth context
+        user_id: user.user_id.clone(),
         name: req.name,
         cron: req.cron,
         query: req.query,

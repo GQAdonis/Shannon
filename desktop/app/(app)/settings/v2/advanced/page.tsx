@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, Sliders, Bug, Radio, RefreshCw, Zap, Clock, Flask } from "lucide-react";
+import { Loader2, Sliders, Bug, Radio, RefreshCw, Zap, Clock, FlaskRound } from "lucide-react";
 import { getAppSettings, updateSettingsSection, AdvancedSettings } from "@/lib/shannon/settings-v2";
 import { toast } from "sonner";
 
@@ -22,11 +22,7 @@ export default function AdvancedPage() {
         experimental_features: false,
     });
 
-    useEffect(() => {
-        loadSettings();
-    }, []);
-
-    const loadSettings = async () => {
+    const loadSettings = useCallback(async () => {
         try {
             const settings = await getAppSettings();
             setAdvanced(settings.advanced);
@@ -36,7 +32,11 @@ export default function AdvancedPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        loadSettings();
+    }, [loadSettings]);
 
     const handleSave = async () => {
         setSaving(true);
@@ -205,7 +205,7 @@ export default function AdvancedPage() {
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                        <Flask className="h-5 w-5" />
+                        <FlaskRound className="h-5 w-5" />
                         Experimental Features
                     </CardTitle>
                     <CardDescription>

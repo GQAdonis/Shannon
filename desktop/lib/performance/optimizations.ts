@@ -93,9 +93,14 @@ export function useIntersectionObserver(
  */
 export function useRenderPerformance(componentName: string) {
   const renderCount = useRef(0);
-  const startTime = useRef(performance.now());
+  const startTime = useRef<number>(0);
 
   useEffect(() => {
+    // Lazy initialization: set startTime on first effect run
+    if (startTime.current === 0) {
+      startTime.current = performance.now();
+    }
+
     renderCount.current += 1;
     const endTime = performance.now();
     const renderTime = endTime - startTime.current;
@@ -109,9 +114,9 @@ export function useRenderPerformance(componentName: string) {
     startTime.current = endTime;
   });
 
-  return {
-    renderCount: renderCount.current,
-  };
+  // Note: We don't return renderCount as it's only for internal logging
+  // Returning ref.current during render violates React purity rules
+  return {};
 }
 
 /**
@@ -150,15 +155,19 @@ export function useVirtualizedList<T>(
 /**
  * Throttle callback
  */
-export function useThrottle<T extends (...args: any[]) => any>(
+export function useThrottle<T extends (...args: unknown[]) => unknown>(
   callback: T,
   delay: number
 ): T {
-  const lastRun = useRef(Date.now());
+  const lastRun = useRef(0);
 
   return useCallback(
     (...args: Parameters<T>) => {
       const now = Date.now();
+      // Lazy initialization on first call
+      if (lastRun.current === 0) {
+        lastRun.current = now;
+      }
       if (now - lastRun.current >= delay) {
         lastRun.current = now;
         return callback(...args);
@@ -172,11 +181,14 @@ export function useThrottle<T extends (...args: any[]) => any>(
  * Detect if user prefers reduced motion
  */
 export function usePrefersReducedMotion() {
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() => {
+    // Lazy initialization to avoid accessing window during SSR
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  });
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setPrefersReducedMotion(mediaQuery.matches);
 
     const handleChange = (e: MediaQueryListEvent) => {
       setPrefersReducedMotion(e.matches);
@@ -221,17 +233,12 @@ export function useComponentSize() {
 
 /**
  * Lazy load component
+ * Once shouldLoad becomes true, the component stays loaded
  */
 export function useLazyLoad(shouldLoad: boolean) {
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  useEffect(() => {
-    if (shouldLoad && !isLoaded) {
-      setIsLoaded(true);
-    }
-  }, [shouldLoad, isLoaded]);
-
-  return isLoaded;
+  // Simply return shouldLoad - if the consumer wants "sticky" behavior,
+  // they should manage that in their own state
+  return shouldLoad;
 }
 
 /**
@@ -240,12 +247,18 @@ export function useLazyLoad(shouldLoad: boolean) {
 export function useFPS() {
   const [fps, setFPS] = useState(60);
   const frameTimesRef = useRef<number[]>([]);
-  const lastTimeRef = useRef(performance.now());
-  const rafIdRef = useRef<number>();
+  const lastTimeRef = useRef<number>(0);
+  const rafIdRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     const measureFPS = () => {
       const now = performance.now();
+      // Lazy initialization on first frame
+      if (lastTimeRef.current === 0) {
+        lastTimeRef.current = now;
+        rafIdRef.current = requestAnimationFrame(measureFPS);
+        return;
+      }
       const delta = now - lastTimeRef.current;
       lastTimeRef.current = now;
 

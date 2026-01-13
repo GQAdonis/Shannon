@@ -6,6 +6,13 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Generate a unique ID with an optional prefix
+ */
+export function generateId(prefix = "id"): string {
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+/**
  * Opens an external URL in the system's default browser.
  * Works in both Tauri (desktop) and web contexts.
  */

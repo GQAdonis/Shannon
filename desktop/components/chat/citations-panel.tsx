@@ -58,17 +58,10 @@ interface CitationCardProps {
 function CitationCard({ citation, expanded, onToggle }: CitationCardProps) {
   return (
     <div className="citation-card border rounded-lg p-3 hover:bg-accent/50 transition-colors">
-      <div
-        className="flex items-center justify-between cursor-pointer"
+      <button
+        type="button"
+        className="flex items-center justify-between cursor-pointer w-full text-left"
         onClick={onToggle}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onToggle();
-          }
-        }}
-        role="button"
-        tabIndex={0}
         aria-expanded={expanded}
       >
         <div className="flex-1">
@@ -94,7 +87,7 @@ function CitationCard({ citation, expanded, onToggle }: CitationCardProps) {
         ) : (
           <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0 ml-2" />
         )}
-      </div>
+      </button>
 
       {expanded && (
         <div className="mt-3 pt-3 border-t">

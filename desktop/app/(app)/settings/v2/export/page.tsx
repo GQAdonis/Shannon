@@ -106,8 +106,7 @@ export default function ExportPage() {
                 </CardHeader>
                 <CardContent>
                     <p className="text-sm text-muted-foreground">
-                        Exported settings will have API keys redacted for security. You'll need to
-                        re-enter them after importing.
+                        {"Exported settings will have API keys redacted for security. You'll need to re-enter them after importing."}
                     </p>
                 </CardContent>
             </Card>

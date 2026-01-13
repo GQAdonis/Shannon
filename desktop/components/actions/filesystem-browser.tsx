@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { filesystemService, FileInfo } from '@/lib/actions/filesystem-service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,7 +40,7 @@ export function FilesystemBrowser() {
   const [newItemName, setNewItemName] = useState('');
   const [showNewDialog, setShowNewDialog] = useState<'file' | 'folder' | null>(null);
 
-  const loadDirectory = async (path: string) => {
+  const loadDirectory = useCallback(async (path: string) => {
     setLoading(true);
     try {
       const result = await filesystemService.listDirectory(path);
@@ -52,12 +52,11 @@ export function FilesystemBrowser() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadDirectory('.');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadDirectory]);
 
   const handleNavigate = (file: FileInfo) => {
     if (file.is_directory) {

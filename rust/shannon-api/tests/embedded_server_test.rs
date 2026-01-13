@@ -11,7 +11,7 @@ async fn test_embedded_server_startup() {
     let db_path = temp_dir.path().join("shannon.db");
     std::env::set_var("SHANNON_MODE", "embedded");
     std::env::set_var("WORKFLOW_ENGINE", "durable");
-    std::env::set_var("SURREALDB_PATH", db_path.to_str().unwrap());
+    std::env::set_var("SHANNON_DB_PATH", db_path.to_str().unwrap());
 
     // Load config
     let config = AppConfig::load().expect("Failed to load config");
@@ -64,7 +64,7 @@ async fn test_auth_rejection() {
     let temp_dir = tempfile::tempdir().unwrap();
     let db_path = temp_dir.path().join("shannon.db");
     std::env::set_var("SHANNON_MODE", "embedded");
-    std::env::set_var("SURREALDB_PATH", db_path.to_str().unwrap());
+    std::env::set_var("SHANNON_DB_PATH", db_path.to_str().unwrap());
 
     let config = AppConfig::load().expect("Failed to load config");
     let app = create_app(
@@ -107,7 +107,7 @@ async fn test_task_submission_embedded() {
     let temp_dir = tempfile::tempdir().unwrap();
     let db_path = temp_dir.path().join("shannon.db");
     std::env::set_var("SHANNON_MODE", "embedded");
-    std::env::set_var("SURREALDB_PATH", db_path.to_str().unwrap());
+    std::env::set_var("SHANNON_DB_PATH", db_path.to_str().unwrap());
 
     // Mock API key in env if necessary, or inject into DB
     // Testing full flow might fail if we don't insert a user into DB first.

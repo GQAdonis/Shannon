@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,11 +18,7 @@ export default function GeneralPage() {
         mcpEnabled: false,
     });
 
-    useEffect(() => {
-        loadStats();
-    }, []);
-
-    const loadStats = async () => {
+    const loadStats = useCallback(async () => {
         try {
             const settings = await getAppSettings();
             setStats({
@@ -37,7 +33,11 @@ export default function GeneralPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        loadStats();
+    }, [loadStats]);
 
     if (loading) {
         return (

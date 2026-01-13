@@ -139,14 +139,17 @@ export function SVGRenderer({ artifact }: SVGRendererProps) {
           maxHeight: artifact.metadata.height || 600,
         }}
       >
-        <div
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`data:image/svg+xml;base64,${btoa(artifact.content)}`}
+          alt={artifact.title}
           style={{
             transform: `scale(${zoom})`,
             transformOrigin: 'center',
             transition: 'transform 0.2s ease-out',
+            maxWidth: '100%',
+            height: 'auto',
           }}
-          dangerouslySetInnerHTML={{ __html: artifact.content }}
-          data-security="sandboxed-svg"
           onError={handleError}
         />
       </div>

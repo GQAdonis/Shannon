@@ -118,39 +118,46 @@ pub async fn create_app(
     };
     step_timer.finish();
 
-    // [6/8] Initialize Database (SurrealDB or Hybrid)
+    // [6/8] Initialize Database (Hybrid SQLite + USearch)
     let step_timer = OpTimer::new("server", "database");
-    
+
     // Prepare EventLog for WorkflowEngine later (only relevant if embedded)
     #[cfg(feature = "embedded")]
-    let (database, event_log): (Option<crate::database::Database>, Option<Box<dyn durable_shannon::EventLog>>) = if config.deployment.is_embedded() {
+    let (database, event_log): (
+        Option<crate::database::Database>,
+        Option<Box<dyn durable_shannon::EventLog>>,
+    ) = if config.deployment.is_embedded() {
         // If passed existing, use it
         if let Some(db) = existing_db {
-             log_init_step!(6, 8, "Database", "🗄️  Using shared connection");
-             
-             // If db is Hybrid, we can clone it as HybridBackend and box it as EventLog
-             let log: Option<Box<dyn durable_shannon::EventLog>> = match &db {
-                 #[cfg(feature = "usearch")]
-                 crate::database::Database::Hybrid(backend) => Some(Box::new(backend.clone())),
-                 _ => None,
-             };
-             (Some(db), log)
-        } else {
-             // Init defaults based on features
-             #[cfg(feature = "usearch")]
-             {
-                 let data_dir = std::path::PathBuf::from(std::env::var("SHANNON_DATA_DIR").unwrap_or_else(|_| "./data".to_string()));
-                 let backend = crate::database::hybrid::HybridBackend::new(data_dir);
-                 if let Err(e) = backend.init().await {
-                     log_init_warning!("Failed to init HybridBackend: {}", e);
-                     (None, None)
-                 } else {
-                     log_init_step!(6, 8, "Database", "🗄️  Hybrid Backend (SQLite + USearch)");
-                     (Some(crate::database::Database::Hybrid(backend.clone())), Some(Box::new(backend)))
-                 }
-             }
-         }
+            log_init_step!(6, 8, "Database", "🗄️  Using shared connection");
 
+            // If db is Hybrid, we can clone it as HybridBackend and box it as EventLog
+            let log: Option<Box<dyn durable_shannon::EventLog>> = match &db {
+                #[cfg(feature = "usearch")]
+                crate::database::Database::Hybrid(backend) => Some(Box::new(backend.clone())),
+                _ => None,
+            };
+            (Some(db), log)
+        } else {
+            // Init defaults based on features
+            #[cfg(feature = "usearch")]
+            {
+                let data_dir = std::path::PathBuf::from(
+                    std::env::var("SHANNON_DATA_DIR").unwrap_or_else(|_| "./data".to_string()),
+                );
+                let backend = crate::database::hybrid::HybridBackend::new(data_dir);
+                if let Err(e) = backend.init().await {
+                    log_init_warning!("Failed to init HybridBackend: {}", e);
+                    (None, None)
+                } else {
+                    log_init_step!(6, 8, "Database", "🗄️  Hybrid Backend (SQLite + USearch)");
+                    (
+                        Some(crate::database::Database::Hybrid(backend.clone())),
+                        Some(Box::new(backend)),
+                    )
+                }
+            }
+        }
     } else {
         log_init_step!(6, 8, "Database", "🗄️  Skipped (cloud mode)");
         (None, None)
@@ -161,10 +168,37 @@ pub async fn create_app(
 
     step_timer.finish();
 
-    // [7/8] Create workflow engine based on deployment mode
+    // [7/8] Create embedding provider for RAG (if OpenAI key available)
+    let step_timer = OpTimer::new("server", "embedding_provider");
+    let embedding_provider = if let Some(ref api_key) = config.providers.openai.api_key {
+        match crate::knowledge::create_provider("openai", Some(api_key.clone()), None) {
+            Ok(provider) => {
+                log_init_step!(7, 8, "Embeddings", "🧠 OpenAI text-embedding-3-small ready");
+                Some(provider)
+            }
+            Err(e) => {
+                log_init_warning!("Failed to create embedding provider: {}", e);
+                log_init_step!(7, 8, "Embeddings", "🧠 Skipped (initialization failed)");
+                None
+            }
+        }
+    } else {
+        log_init_step!(7, 8, "Embeddings", "🧠 Skipped (no OpenAI API key)");
+        None
+    };
+    step_timer.finish();
+
+    // [7.5/8] Create event bus for workflow streaming
+    let step_timer = OpTimer::new("server", "event_bus");
+    let event_bus = crate::workflow::embedded::event_bus::EventBus::new();
+    log_init_step!(7, 8, "Event Bus", "📡 Real-time event streaming ready");
+    step_timer.finish();
+
+    // [7.5/8] Create workflow engine based on deployment mode
     let step_timer = OpTimer::new("server", "workflow_engine");
     let workflow_engine = create_workflow_engine(
         &config,
+        event_bus.clone(),
         #[cfg(feature = "embedded")]
         event_log,
     )
@@ -184,8 +218,10 @@ pub async fn create_app(
         run_manager,
         redis,
         workflow_engine,
+        event_bus,
         #[cfg(feature = "embedded")]
         database,
+        embedding_provider,
     };
 
     // [8/8] Build main API router with middleware
@@ -234,11 +270,12 @@ async fn init_redis(url: &str) -> anyhow::Result<redis::aio::ConnectionManager> 
 /// Create workflow engine based on deployment configuration.
 async fn create_workflow_engine(
     config: &AppConfig,
-    #[cfg(feature = "embedded")]
-    event_log: Option<Box<dyn durable_shannon::EventLog>>,
+    event_bus: crate::workflow::embedded::event_bus::EventBus,
+    #[cfg(feature = "embedded")] event_log: Option<Box<dyn durable_shannon::EventLog>>,
 ) -> anyhow::Result<WorkflowEngine> {
     WorkflowEngine::from_config(
         &config.deployment.workflow,
+        event_bus,
         #[cfg(feature = "embedded")]
         event_log,
     )

@@ -185,14 +185,14 @@ export function useWindowSize() {
  * Hook to detect if device is touch-enabled
  */
 export function useIsTouchDevice(): boolean {
-  const [isTouch, setIsTouch] = useState(false);
+  const [isTouch] = useState(() => {
+    // Check if running in browser environment
+    if (typeof window === 'undefined') {
+      return false;
+    }
 
-  useEffect(() => {
-    setIsTouch(
-      'ontouchstart' in window ||
-      navigator.maxTouchPoints > 0
-    );
-  }, []);
+    return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  });
 
   return isTouch;
 }
