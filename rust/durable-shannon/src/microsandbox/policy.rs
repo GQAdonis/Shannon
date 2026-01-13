@@ -1,9 +1,9 @@
-//! MicroSandbox Capability Policy System
+//! `MicroSandbox` Capability Policy System
 //!
-//! The MicroSandbox uses a capability-based security model.
+//! The `MicroSandbox` uses a capability-based security model.
 //!
 //! WASM modules can only access capabilities explicitly granted
-//! by their MicroVmProfile policy. This system controls:
+//! by their `MicroVmProfile` policy. This system controls:
 //!   • File system access (none, read-only paths, read-write paths)
 //!   • Network access (blocked, allowlist, denylist)
 //!   • Environment variable exposure
@@ -15,7 +15,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::microsandbox::error::*;
+use crate::microsandbox::error::{Result, MicroVmError};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum FileSystemCapability {
@@ -107,23 +107,20 @@ impl SandboxCapabilities {
     pub fn check_fs_access(&self, path: &str, write: bool) -> Result<()> {
         match &self.fs {
             FileSystemCapability::None => Err(MicroVmError::Policy(format!(
-                "Filesystem access denied: {}",
-                path
+                "Filesystem access denied: {path}"
             ))),
 
             FileSystemCapability::ReadOnly(dirs) => {
                 if write {
                     return Err(MicroVmError::Policy(format!(
-                        "Write access denied: {}",
-                        path
+                        "Write access denied: {path}"
                     )));
                 }
                 if dirs.iter().any(|p| path.starts_with(p)) {
                     Ok(())
                 } else {
                     Err(MicroVmError::Policy(format!(
-                        "Read access denied: {}",
-                        path
+                        "Read access denied: {path}"
                     )))
                 }
             }
@@ -133,8 +130,7 @@ impl SandboxCapabilities {
                     Ok(())
                 } else {
                     Err(MicroVmError::Policy(format!(
-                        "FS path not in allowlist: {}",
-                        path
+                        "FS path not in allowlist: {path}"
                     )))
                 }
             }
@@ -145,7 +141,7 @@ impl SandboxCapabilities {
     pub fn check_network_access(&self, host: &str) -> Result<()> {
         match &self.net {
             NetworkCapability::BlockAll => {
-                Err(MicroVmError::Policy(format!("Network denied to {}", host)))
+                Err(MicroVmError::Policy(format!("Network denied to {host}")))
             }
 
             NetworkCapability::AllowList(list) => {
@@ -153,8 +149,7 @@ impl SandboxCapabilities {
                     Ok(())
                 } else {
                     Err(MicroVmError::Policy(format!(
-                        "Host {} not in allowlist",
-                        host
+                        "Host {host} not in allowlist"
                     )))
                 }
             }

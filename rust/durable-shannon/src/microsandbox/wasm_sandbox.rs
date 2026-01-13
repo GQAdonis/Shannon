@@ -19,7 +19,7 @@ use wasmtime_wasi::{
 use wasmtime_wasi::p1::{self, WasiP1Ctx};
 
 use crate::microsandbox::{
-    error::*,
+    error::{Result, MicroVmError},
     policy::SandboxCapabilities,
 };
 
@@ -43,10 +43,10 @@ impl WasmSandbox {
 
         // Allow WASM to import WASI functions
         let engine = Engine::new(&config)
-            .map_err(|e| MicroVmError::Wasm(format!("Engine init: {}", e)))?;
+            .map_err(|e| MicroVmError::Wasm(format!("Engine init: {e}")))?;
 
         let module = Module::new(&engine, bytes)
-            .map_err(|e| MicroVmError::Wasm(format!("Module load: {}", e)))?;
+            .map_err(|e| MicroVmError::Wasm(format!("Module load: {e}")))?;
 
         Ok(Self { engine, module })
     }
@@ -80,13 +80,13 @@ impl WasmSandbox {
             crate::microsandbox::policy::FileSystemCapability::ReadOnly(dirs) => {
                 for p in dirs {
                     wasi_builder.preopened_dir(p, p, DirPerms::READ, FilePerms::READ)
-                         .map_err(|e| MicroVmError::Io(format!("fs open: {}", e)))?;
+                         .map_err(|e| MicroVmError::Io(format!("fs open: {e}")))?;
                 }
             }
             crate::microsandbox::policy::FileSystemCapability::ReadWrite(dirs) => {
                 for p in dirs {
                     wasi_builder.preopened_dir(p, p, DirPerms::all(), FilePerms::all())
-                        .map_err(|e| MicroVmError::Io(format!("fs open: {}", e)))?;
+                        .map_err(|e| MicroVmError::Io(format!("fs open: {e}")))?;
                 }
             }
         }
@@ -115,20 +115,20 @@ impl WasmSandbox {
         // Register WASI P1 imports
         // This ensures the WASM module can call WASI functions
         p1::add_to_linker_async(&mut linker, |t| &mut t.p1)
-             .map_err(|e| MicroVmError::Wasm(format!("WASI command linker: {}", e)))?;
+             .map_err(|e| MicroVmError::Wasm(format!("WASI command linker: {e}")))?;
 
         let instance = linker
             .instantiate_async(&mut store, &self.module)
             .await
-            .map_err(|e| MicroVmError::Wasm(format!("instantiate: {}", e)))?;
+            .map_err(|e| MicroVmError::Wasm(format!("instantiate: {e}")))?;
 
         let (kill_tx, kill_rx) = oneshot::channel::<()>();
         let pid = 1234;
 
         tokio::spawn(async move {
             tokio::select! {
-                _ = tokio::time::sleep(Duration::from_millis(caps.timeout_ms)) => {
-                    eprintln!("[MicroSandbox] PID {} timed out", pid);
+                () = tokio::time::sleep(Duration::from_millis(caps.timeout_ms)) => {
+                    eprintln!("[MicroSandbox] PID {pid} timed out");
                     let _ = kill_tx.send(());
                 }
             }
@@ -182,7 +182,7 @@ impl WasmProcess {
 
     pub fn kill(&mut self) {
         if let Some(mut rx) = self.kill_rx.take() {
-            let _ = rx.close();
+            let () = rx.close();
         }
     }
 
@@ -192,22 +192,22 @@ impl WasmProcess {
         let func = self
             .instance
             .get_typed_func::<u32, u32>(&mut self.store, func_name)
-            .map_err(|e| MicroVmError::Wasm(format!("func lookup '{}': {}", func_name, e)))?;
+            .map_err(|e| MicroVmError::Wasm(format!("func lookup '{func_name}': {e}")))?;
 
         let input_str = serde_json::to_string(input)
-            .map_err(|e| MicroVmError::Wasm(format!("json encode: {}", e)))?;
+            .map_err(|e| MicroVmError::Wasm(format!("json encode: {e}")))?;
 
         let ptr_in = self.write_string(&input_str).await?;
 
         let ptr_out = func
             .call_async(&mut self.store, ptr_in)
             .await
-            .map_err(|e| MicroVmError::Wasm(format!("call '{}': {}", func_name, e)))?;
+            .map_err(|e| MicroVmError::Wasm(format!("call '{func_name}': {e}")))?;
 
         let output_str = self.read_string(ptr_out).await?;
 
         let out_json: Value = serde_json::from_str(&output_str)
-            .map_err(|e| MicroVmError::Wasm(format!("json parse: {}", e)))?;
+            .map_err(|e| MicroVmError::Wasm(format!("json parse: {e}")))?;
 
         Ok(out_json)
     }
@@ -235,16 +235,16 @@ impl WasmProcess {
         let alloc = self
             .instance
             .get_typed_func::<u32, u32>(&mut self.store, "alloc")
-            .map_err(|e| MicroVmError::Wasm(format!("alloc: {}", e)))?;
+            .map_err(|e| MicroVmError::Wasm(format!("alloc: {e}")))?;
 
         let ptr = alloc
             .call_async(&mut self.store, len)
             .await
-            .map_err(|e| MicroVmError::Wasm(format!("alloc call: {}", e)))?;
+            .map_err(|e| MicroVmError::Wasm(format!("alloc call: {e}")))?;
 
         memory
             .write(&mut self.store, ptr as usize, bytes)
-            .map_err(|e| MicroVmError::Io(format!("memory write: {}", e)))?;
+            .map_err(|e| MicroVmError::Io(format!("memory write: {e}")))?;
 
         Ok(ptr)
     }
@@ -263,7 +263,7 @@ impl WasmProcess {
                 let mut tmp = [0u8; 1];
                 memory
                     .read(&mut self.store, offset, &mut tmp)
-                    .map_err(|e| MicroVmError::Io(format!("memory read: {}", e)))?;
+                    .map_err(|e| MicroVmError::Io(format!("memory read: {e}")))?;
                 tmp[0]
             };
 
@@ -275,6 +275,6 @@ impl WasmProcess {
         }
 
         String::from_utf8(buf)
-            .map_err(|e| MicroVmError::Io(format!("utf8: {}", e)))
+            .map_err(|e| MicroVmError::Io(format!("utf8: {e}")))
     }
 }

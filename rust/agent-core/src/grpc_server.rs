@@ -28,7 +28,7 @@ pub mod proto {
 }
 
 use proto::agent::agent_service_server::{AgentService, AgentServiceServer};
-use proto::agent::*;
+use proto::agent::{ExecuteTaskRequest, ExecuteTaskResponse, TaskUpdate, GetCapabilitiesRequest, GetCapabilitiesResponse, HealthCheckRequest, HealthCheckResponse, DiscoverToolsRequest, DiscoverToolsResponse, GetToolCapabilityRequest, GetToolCapabilityResponse};
 
 // Streaming limits to prevent resource exhaustion
 const MAX_STREAM_BUFFER_SIZE: usize = 1_000_000; // 1MB max buffer size
@@ -114,8 +114,7 @@ impl AgentServiceImpl {
                 // Enforce allowed tools if provided in request
                 if !req.available_tools.is_empty() && !req.available_tools.contains(&tool_name) {
                     return Err(Status::permission_denied(format!(
-                        "Tool '{}' is not allowed for this request",
-                        tool_name
+                        "Tool '{tool_name}' is not allowed for this request"
                     )));
                 }
 
@@ -137,7 +136,7 @@ impl AgentServiceImpl {
                             serde_json::Value::Array(
                                 list.values
                                     .iter()
-                                    .map(|v| prost_to_json_recursive(v))
+                                    .map(prost_to_json_recursive)
                                     .collect(),
                             )
                         }
@@ -314,12 +313,12 @@ impl AgentServiceImpl {
                     "LLM-native tool execution failed in {}ms: {}",
                     execution_time_ms, e
                 );
-                Err(Status::internal(format!("Tool execution failed: {}", e)))
+                Err(Status::internal(format!("Tool execution failed: {e}")))
             }
         }
     }
 
-    /// Execute a sequence of tool calls provided by Python in context.tool_calls
+    /// Execute a sequence of tool calls provided by Python in `context.tool_calls`
     async fn execute_tool_calls(
         &self,
         list: &prost_types::ListValue,
@@ -348,9 +347,9 @@ impl AgentServiceImpl {
 
         // Optional secondary allowlist from context (defense-in-depth)
         let mut ctx_allowed: Option<std::collections::HashSet<String>> = None;
-        if let Some(ctx) = &req.context {
-            if let Some(val) = ctx.fields.get("allowed_tools") {
-                if let Some(prost_types::value::Kind::ListValue(lv)) = &val.kind {
+        if let Some(ctx) = &req.context
+            && let Some(val) = ctx.fields.get("allowed_tools")
+                && let Some(prost_types::value::Kind::ListValue(lv)) = &val.kind {
                     let mut s = std::collections::HashSet::new();
                     for v in &lv.values {
                         if let Some(prost_types::value::Kind::StringValue(name)) = &v.kind {
@@ -361,8 +360,6 @@ impl AgentServiceImpl {
                         ctx_allowed = Some(s);
                     }
                 }
-            }
-        }
 
         // Parallel fan-out (bounded) when enabled via env TOOL_PARALLELISM>1
         if std::env::var("TOOL_PARALLELISM")
@@ -379,8 +376,7 @@ impl AgentServiceImpl {
             let parallelism = std::env::var("TOOL_PARALLELISM")
                 .ok()
                 .and_then(|s| s.parse::<usize>().ok())
-                .map(|n| n.clamp(1, 32))
-                .unwrap_or(1);
+                .map_or(1, |n| n.clamp(1, 32));
             let semaphore = Arc::new(Semaphore::new(parallelism));
 
             // Pre-parse items and enforce allowlist prior to spawning
@@ -404,21 +400,18 @@ impl AgentServiceImpl {
                             })?;
                         if !req.available_tools.is_empty() && !req.available_tools.contains(&tool) {
                             return Err(Status::permission_denied(format!(
-                                "Tool '{}' is not allowed for this request",
-                                tool
+                                "Tool '{tool}' is not allowed for this request"
                             )));
                         }
-                        if let Some(ref allow) = ctx_allowed {
-                            if !allow.contains(&tool) {
+                        if let Some(ref allow) = ctx_allowed
+                            && !allow.contains(&tool) {
                                 return Err(Status::permission_denied(format!(
-                                    "Tool '{}' is not permitted by context",
-                                    tool
+                                    "Tool '{tool}' is not permitted by context"
                                 )));
                             }
-                        }
                         let mut params = HashMap::new();
-                        if let Some(par_v) = s.fields.get("parameters") {
-                            if let Some(prost_types::value::Kind::StructValue(pst)) = &par_v.kind {
+                        if let Some(par_v) = s.fields.get("parameters")
+                            && let Some(prost_types::value::Kind::StructValue(pst)) = &par_v.kind {
                                 for (k, v) in &pst.fields {
                                     params.insert(
                                         k.clone(),
@@ -426,7 +419,6 @@ impl AgentServiceImpl {
                                     );
                                 }
                             }
-                        }
                         (tool, params)
                     }
                     _ => {
@@ -451,9 +443,9 @@ impl AgentServiceImpl {
             let mut results: Vec<Option<ItemRes>> = (0..total).map(|_| None).collect();
             let wall_start = std::time::Instant::now();
             let mut handles = Vec::with_capacity(total);
-            for (idx, tool_name, params_map) in parsed.into_iter() {
+            for (idx, tool_name, params_map) in parsed {
                 let permit = semaphore.clone().acquire_owned().await.map_err(|e| {
-                    tonic::Status::internal(format!("Failed to acquire semaphore permit: {}", e))
+                    tonic::Status::internal(format!("Failed to acquire semaphore permit: {e}"))
                 })?;
                 #[cfg(feature = "wasi")]
                 let sandbox = self.sandbox.clone();
@@ -506,7 +498,7 @@ impl AgentServiceImpl {
                             params_map: HashMap::new(),
                             success: false,
                             output: serde_json::Value::Null,
-                            error: format!("join error: {}", e),
+                            error: format!("join error: {e}"),
                             dur_ms: 0,
                         });
                     }
@@ -630,27 +622,23 @@ impl AgentServiceImpl {
 
                     if !req.available_tools.is_empty() && !req.available_tools.contains(&tool) {
                         return Err(Status::permission_denied(format!(
-                            "Tool '{}' is not allowed for this request",
-                            tool
+                            "Tool '{tool}' is not allowed for this request"
                         )));
                     }
-                    if let Some(ref allow) = ctx_allowed {
-                        if !allow.contains(&tool) {
+                    if let Some(ref allow) = ctx_allowed
+                        && !allow.contains(&tool) {
                             return Err(Status::permission_denied(format!(
-                                "Tool '{}' is not permitted by context",
-                                tool
+                                "Tool '{tool}' is not permitted by context"
                             )));
                         }
-                    }
 
                     let mut params = HashMap::new();
-                    if let Some(par_v) = s.fields.get("parameters") {
-                        if let Some(prost_types::value::Kind::StructValue(pst)) = &par_v.kind {
+                    if let Some(par_v) = s.fields.get("parameters")
+                        && let Some(prost_types::value::Kind::StructValue(pst)) = &par_v.kind {
                             for (k, v) in &pst.fields {
                                 params.insert(k.clone(), to_json(v));
                             }
                         }
-                    }
                     (tool, params)
                 }
                 _ => {
@@ -678,7 +666,7 @@ impl AgentServiceImpl {
                     if !res.success {
                         overall_status = proto::common::StatusCode::Error.into();
                         if let Some(err) = &res.error {
-                            failure_msgs.push(format!("{}: {}", tool_name, err));
+                            failure_msgs.push(format!("{tool_name}: {err}"));
                         }
                     }
 
@@ -718,7 +706,7 @@ impl AgentServiceImpl {
                 Err(e) => {
                     let dur = start.elapsed().as_millis() as i64;
                     overall_status = proto::common::StatusCode::Error.into();
-                    failure_msgs.push(format!("{}: {}", tool_name, e));
+                    failure_msgs.push(format!("{tool_name}: {e}"));
                     let tc_params_struct = prost_types::Struct {
                         fields: params_map
                             .iter()
@@ -839,14 +827,12 @@ impl AgentService for AgentServiceImpl {
                 "Context fields available: {:?}",
                 context.fields.keys().collect::<Vec<_>>()
             );
-            if let Some(tc_list) = context.fields.get("tool_calls") {
-                if let Some(prost_types::value::Kind::ListValue(list)) = &tc_list.kind {
+            if let Some(tc_list) = context.fields.get("tool_calls")
+                && let Some(prost_types::value::Kind::ListValue(list)) = &tc_list.kind {
                     info!("Detected tool_calls list; executing (parallelism may apply)");
                     let key = req
                         .metadata
-                        .as_ref()
-                        .map(|m| m.user_id.clone())
-                        .unwrap_or_else(|| "anonymous".to_string());
+                        .as_ref().map_or_else(|| "anonymous".to_string(), |m| m.user_id.clone());
                     let est = req.query.len().saturating_div(4);
                     let enforcer = self.enforcer.clone();
                     let list = list.clone();
@@ -865,7 +851,6 @@ impl AgentService for AgentServiceImpl {
                         _ => Status::internal(e.to_string()),
                     });
                 }
-            }
             // ENFORCEMENT: Check for tool parameters and execute tools directly
             if let Some(tool_params) = context.fields.get("tool_parameters") {
                 info!(
@@ -873,9 +858,7 @@ impl AgentService for AgentServiceImpl {
                 );
                 let key = req
                     .metadata
-                    .as_ref()
-                    .map(|m| m.user_id.clone())
-                    .unwrap_or_else(|| "anonymous".to_string());
+                    .as_ref().map_or_else(|| "anonymous".to_string(), |m| m.user_id.clone());
                 let est = req.query.len().saturating_div(4);
                 let enforcer = self.enforcer.clone();
                 let tp = tool_params.clone();
@@ -921,14 +904,13 @@ impl AgentService for AgentServiceImpl {
                     ctx_json = serde_json::Value::Object(map);
                 }
 
-                if let Some(session_ctx) = &req.session_context {
-                    if !session_ctx.history.is_empty() {
+                if let Some(session_ctx) = &req.session_context
+                    && !session_ctx.history.is_empty() {
                         let hist = session_ctx.history.join("\n");
                         if let Some(obj) = ctx_json.as_object_mut() {
                             obj.insert("history".to_string(), serde_json::Value::String(hist));
                         }
                     }
-                }
 
                 let mode_str = match req.mode() {
                     proto::common::ExecutionMode::Simple => "simple",
@@ -938,9 +920,7 @@ impl AgentService for AgentServiceImpl {
                 };
                 let key = req
                     .metadata
-                    .as_ref()
-                    .map(|m| m.user_id.clone())
-                    .unwrap_or_else(|| "anonymous".to_string());
+                    .as_ref().map_or_else(|| "anonymous".to_string(), |m| m.user_id.clone());
                 let est = req.query.len().saturating_div(4);
                 let enforcer = self.enforcer.clone();
                 let q = req.query.clone();
@@ -1040,9 +1020,7 @@ impl AgentService for AgentServiceImpl {
         let llm = self.llm.clone();
         let key = req
             .metadata
-            .as_ref()
-            .map(|m| m.user_id.clone())
-            .unwrap_or_else(|| "anonymous".to_string());
+            .as_ref().map_or_else(|| "anonymous".to_string(), |m| m.user_id.clone());
         let est = req.query.len().saturating_div(4);
         let enforcer = self.enforcer.clone();
         let mode_str = match req.mode() {
@@ -1052,14 +1030,13 @@ impl AgentService for AgentServiceImpl {
         };
         // Build minimal context from session history
         let mut ctx_json = serde_json::json!({});
-        if let Some(session_ctx) = &req.session_context {
-            if !session_ctx.history.is_empty() {
+        if let Some(session_ctx) = &req.session_context
+            && !session_ctx.history.is_empty() {
                 let hist = session_ctx.history.join("\n");
                 if let Some(obj) = ctx_json.as_object_mut() {
                     obj.insert("history".to_string(), serde_json::Value::String(hist));
                 }
             }
-        }
         let q = req.query.clone();
 
         // Pass suggested tools to LLM for complex mode as well
@@ -1158,9 +1135,7 @@ impl AgentService for AgentServiceImpl {
 
         let task_id = req
             .metadata
-            .as_ref()
-            .map(|m| m.task_id.clone())
-            .unwrap_or_else(|| "stream-task".to_string());
+            .as_ref().map_or_else(|| "stream-task".to_string(), |m| m.task_id.clone());
         let llm = self.llm.clone();
 
         // Build minimal JSON context (including session history)
@@ -1172,14 +1147,13 @@ impl AgentService for AgentServiceImpl {
             }
             ctx_json = serde_json::Value::Object(map);
         }
-        if let Some(session_ctx) = &req.session_context {
-            if !session_ctx.history.is_empty() {
+        if let Some(session_ctx) = &req.session_context
+            && !session_ctx.history.is_empty() {
                 let hist = session_ctx.history.join("\n");
                 if let Some(obj) = ctx_json.as_object_mut() {
                     obj.insert("history".to_string(), serde_json::Value::String(hist));
                 }
             }
-        }
 
         let mode_str = match req.mode() {
             proto::common::ExecutionMode::Simple => "simple",
@@ -1229,7 +1203,7 @@ impl AgentService for AgentServiceImpl {
                                             // Check buffer size limit before appending
                                             if buffer.len() + d.len() > MAX_STREAM_BUFFER_SIZE {
                                                 return Err(Status::resource_exhausted(
-                                                    format!("Response exceeds maximum size of {} bytes", MAX_STREAM_BUFFER_SIZE)
+                                                    format!("Response exceeds maximum size of {MAX_STREAM_BUFFER_SIZE} bytes")
                                                 ));
                                             }
                                             buffer.push_str(&d);
@@ -1266,7 +1240,7 @@ impl AgentService for AgentServiceImpl {
                                                 val.filter(|&t| t > 0 && t < 10_000_000)
                                             };
                                             let validate_cost = |val: Option<f64>| -> Option<f64> {
-                                                val.filter(|&c| c >= 0.0 && c < 10000.0)
+                                                val.filter(|&c| (0.0..10000.0).contains(&c))
                                             };
 
                                             let usage_json = serde_json::json!({
@@ -1338,7 +1312,7 @@ impl AgentService for AgentServiceImpl {
                         }
                         Err(_) => {
                             let _ = tx.send(Err(Status::deadline_exceeded(
-                                format!("Stream timeout after {} seconds", STREAM_TIMEOUT_SECS)
+                                format!("Stream timeout after {STREAM_TIMEOUT_SECS} seconds")
                             ))).await;
                         }
                     }
@@ -1433,8 +1407,8 @@ impl AgentService for AgentServiceImpl {
 fn tool_meta_to_proto(
     meta: &Option<serde_json::Value>,
 ) -> (Vec<proto::common::ToolCall>, Vec<proto::common::ToolResult>) {
-    if let Some(meta_val) = meta {
-        if let Some(exec_list) = meta_val
+    if let Some(meta_val) = meta
+        && let Some(exec_list) = meta_val
             .get("tool_executions")
             .and_then(|v| v.as_array())
         {
@@ -1454,7 +1428,7 @@ fn tool_meta_to_proto(
                     .map(crate::grpc_server::prost_value_to_json_to_prost);
                 let status = if exec
                     .get("success")
-                    .and_then(|v| v.as_bool())
+                    .and_then(serde_json::Value::as_bool)
                     .unwrap_or(false)
                 {
                     proto::common::StatusCode::Ok.into()
@@ -1468,7 +1442,7 @@ fn tool_meta_to_proto(
                     .to_string();
                 let duration_ms = exec
                     .get("duration_ms")
-                    .and_then(|v| v.as_i64())
+                    .and_then(serde_json::Value::as_i64)
                     .unwrap_or(0);
 
                 calls.push(proto::common::ToolCall {
@@ -1486,12 +1460,11 @@ fn tool_meta_to_proto(
             }
             return (calls, results);
         }
-    }
     (Vec::new(), Vec::new())
 }
 
 pub fn prost_value_to_json(v: &prost_types::Value) -> serde_json::Value {
-    use prost_types::value::Kind::*;
+    use prost_types::value::Kind::{NullValue, BoolValue, NumberValue, StringValue, ListValue, StructValue};
     match v.kind.as_ref() {
         Some(NullValue(_)) => serde_json::Value::Null,
         Some(BoolValue(b)) => serde_json::Value::Bool(*b),

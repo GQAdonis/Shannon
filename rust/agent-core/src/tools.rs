@@ -175,18 +175,17 @@ impl ToolExecutor {
                             tool: tool_call.tool_name.clone(),
                             success: false,
                             output: serde_json::Value::Null,
-                            error: Some(format!("Math evaluation error: {}", e)),
+                            error: Some(format!("Math evaluation error: {e}")),
                         });
                     }
                 }
-            } else {
-                return Ok(ToolResult {
-                    tool: tool_call.tool_name.clone(),
-                    success: false,
-                    output: serde_json::Value::Null,
-                    error: Some("Missing 'expression' parameter for calculator".to_string()),
-                });
             }
+            return Ok(ToolResult {
+                tool: tool_call.tool_name.clone(),
+                success: false,
+                output: serde_json::Value::Null,
+                error: Some("Missing 'expression' parameter for calculator".to_string()),
+            });
         }
 
         // Route code execution to WASI sandbox when requested
@@ -233,7 +232,7 @@ impl ToolExecutor {
                 {
                     fs::read(path_val)
                         .await
-                        .with_context(|| format!("Failed to read wasm module at {}", path_val))
+                        .with_context(|| format!("Failed to read wasm module at {path_val}"))
                 } else {
                     Err(anyhow::anyhow!(
                         "missing 'wasm_base64' or 'wasm_path' parameter"
@@ -251,7 +250,7 @@ impl ToolExecutor {
                             });
                         }
                         Err(e) => {
-                            let msg = format!("WASI execution error: {}", e);
+                            let msg = format!("WASI execution error: {e}");
                             warn!("{}", msg);
                             return Ok(ToolResult {
                                 tool: tool_call.tool_name.clone(),
@@ -271,9 +270,8 @@ impl ToolExecutor {
                         });
                     }
                 }
-            } else {
-                warn!("WASI sandbox not configured; falling back to HTTP tool execution");
             }
+            warn!("WASI sandbox not configured; falling back to HTTP tool execution");
         }
 
         let client = reqwest::Client::new();

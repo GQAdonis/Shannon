@@ -160,7 +160,7 @@ impl WasmCache {
     /// # Errors
     /// Returns error if module cannot be found or loaded
     pub fn get(&self, name: &str, version: &str) -> Result<Arc<Module>, CacheError> {
-        let cache_key = format!("{}:{}", name, version);
+        let cache_key = format!("{name}:{version}");
 
         // Try cache first (fast path)
         {
@@ -187,13 +187,13 @@ impl WasmCache {
 
     /// Load a WASM module from filesystem.
     fn load_module(&self, name: &str, version: &str) -> Result<Arc<Module>, CacheError> {
-        let cache_key = format!("{}:{}", name, version);
+        let cache_key = format!("{name}:{version}");
 
         // Construct module path
         let module_path = if version == "latest" {
-            self.module_dir.join(format!("{}.wasm", name))
+            self.module_dir.join(format!("{name}.wasm"))
         } else {
-            self.module_dir.join(format!("{}-{}.wasm", name, version))
+            self.module_dir.join(format!("{name}-{version}.wasm"))
         };
 
         // Check if file exists
@@ -209,7 +209,7 @@ impl WasmCache {
         let module_size = module_bytes.len();
 
         let module = Module::from_binary(&self.engine, &module_bytes)
-            .map_err(|e| CacheError::LoadError(format!("Failed to compile {}: {}", name, e)))?;
+            .map_err(|e| CacheError::LoadError(format!("Failed to compile {name}: {e}")))?;
 
         let module = Arc::new(module);
 
@@ -331,7 +331,7 @@ impl WasmCache {
     ///
     /// Use this when a module version is updated.
     pub fn invalidate(&self, name: &str, version: &str) {
-        let cache_key = format!("{}:{}", name, version);
+        let cache_key = format!("{name}:{version}");
 
         let mut entries = self.entries.write();
         let mut current_size = self.current_size.write();

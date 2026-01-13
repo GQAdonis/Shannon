@@ -59,7 +59,7 @@ impl From<reqwest::Error> for AgentError {
         if err.is_timeout() {
             AgentError::TaskTimeout { seconds: 30 } // Default timeout
         } else if err.is_connect() {
-            AgentError::NetworkError(format!("Connection failed: {}", err))
+            AgentError::NetworkError(format!("Connection failed: {err}"))
         } else if let Some(status) = err.status() {
             AgentError::HttpError {
                 status: status.as_u16(),

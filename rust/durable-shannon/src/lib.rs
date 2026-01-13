@@ -1,7 +1,7 @@
 //! Shannon-specific extensions to the Durable workflow engine.
 //!
 //! This crate provides:
-//! - SurrealDB backend for event log persistence
+//! - `SurrealDB` backend for event log persistence
 //! - Embedded worker mode for Tauri desktop/mobile
 //! - Custom activity types for LLM calls and tool execution
 //!
@@ -13,7 +13,7 @@
 //! - Checkpoint-based state management
 //!
 //! Shannon extends Durable with:
-//! - SurrealDB storage backend (instead of PostgreSQL)
+//! - `SurrealDB` storage backend (instead of `PostgreSQL`)
 //! - Embedded worker that runs in-process
 //! - LLM activity types with retry and fallback logic
 //!

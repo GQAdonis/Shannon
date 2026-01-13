@@ -122,7 +122,7 @@ impl LLMClient {
         let client = Client::builder()
             .timeout(config.llm_timeout())
             .build()
-            .map_err(|e| AgentError::NetworkError(format!("Failed to build HTTP client: {}", e)))?;
+            .map_err(|e| AgentError::NetworkError(format!("Failed to build HTTP client: {e}")))?;
 
         info!("LLM client initialized with base URL: {}", base_url);
 
@@ -177,8 +177,7 @@ impl LLMClient {
                             .map(|f| f as u64)
                     })
                 })
-                .map(|n| n as u32)
-                .unwrap_or(16384)
+                .map_or(16384, |n| n as u32)
         } else {
             16384
         };
@@ -211,14 +210,14 @@ impl LLMClient {
         let mut request_builder = self.client.post(&url).json(&request);
 
         // Add the trace headers to the request
-        for (key, value) in headers.iter() {
+        for (key, value) in &headers {
             if let Ok(header_value) = value.to_str() {
                 request_builder = request_builder.header(key.as_str(), header_value);
             }
         }
 
         let response = request_builder.send().await.map_err(|e| {
-            AgentError::NetworkError(format!("Failed to send request to LLM service: {}", e))
+            AgentError::NetworkError(format!("Failed to send request to LLM service: {e}"))
         })?;
 
         if !response.status().is_success() {
@@ -229,21 +228,20 @@ impl LLMClient {
             // Always surface errors for observability (removed dev mock fallback)
             return Err(AgentError::HttpError {
                 status: status.as_u16(),
-                message: format!("LLM service error: {} - {}", status, body),
+                message: format!("LLM service error: {status} - {body}"),
             });
         }
 
         let agent_response: AgentResponse = response.json().await.map_err(|e| {
             AgentError::LlmResponseParseError(format!(
-                "Failed to parse LLM service response: {}",
-                e
+                "Failed to parse LLM service response: {e}"
             ))
         })?;
 
         if !agent_response.success {
             warn!("LLM service returned unsuccessful response");
             return Ok(AgentQueryResult {
-                response: format!("Error response for: {}", query),
+                response: format!("Error response for: {query}"),
                 usage: TokenUsage {
                     prompt_tokens: 0,
                     completion_tokens: 0,
@@ -302,14 +300,13 @@ impl LLMClient {
             _ => "medium".to_string(),
         };
         let mut effective_tier = tier_from_mode.clone();
-        if let Some(obj) = ctx_val.as_object() {
-            if let Some(mt) = obj.get("model_tier").and_then(|v| v.as_str()) {
+        if let Some(obj) = ctx_val.as_object()
+            && let Some(mt) = obj.get("model_tier").and_then(|v| v.as_str()) {
                 let mt_l = mt.to_lowercase();
                 if mt_l == "small" || mt_l == "medium" || mt_l == "large" {
                     effective_tier = mt_l;
                 }
             }
-        }
 
         let max_tokens = if let Some(obj) = ctx_val.as_object() {
             obj.get("max_tokens")
@@ -320,8 +317,7 @@ impl LLMClient {
                             .map(|f| f as u64)
                     })
                 })
-                .map(|n| n as u32)
-                .unwrap_or(16384)
+                .map_or(16384, |n| n as u32)
         } else {
             16384
         };
@@ -340,7 +336,7 @@ impl LLMClient {
 
         let headers = http::HeaderMap::new();
         let mut request_builder = self.client.post(&url).json(&request);
-        for (key, value) in headers.iter() {
+        for (key, value) in &headers {
             if let Ok(header_value) = value.to_str() {
                 request_builder = request_builder.header(key.as_str(), header_value);
             }
@@ -348,8 +344,7 @@ impl LLMClient {
 
         let response = request_builder.send().await.map_err(|e| {
             AgentError::NetworkError(format!(
-                "Failed to send streaming request to LLM service: {}",
-                e
+                "Failed to send streaming request to LLM service: {e}"
             ))
         })?;
 
@@ -363,13 +358,13 @@ impl LLMClient {
 
             return Err(AgentError::HttpError {
                 status: status.as_u16(),
-                message: format!("LLM streaming service error: {} - {}", status, body),
+                message: format!("LLM streaming service error: {status} - {body}"),
             });
         }
 
         let byte_stream = response
             .bytes_stream()
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e));
+            .map_err(std::io::Error::other);
         let reader = StreamReader::new(byte_stream);
         let lines = LinesStream::new(BufReader::new(reader).lines());
 
@@ -383,8 +378,7 @@ impl LLMClient {
                 }
                 let parsed: StreamResponseLine = serde_json::from_str(&line).map_err(|e| {
                     AgentError::LlmResponseParseError(format!(
-                        "Failed to parse stream chunk: {}",
-                        e
+                        "Failed to parse stream chunk: {e}"
                     ))
                 })?;
 
@@ -393,8 +387,7 @@ impl LLMClient {
                 let is_final = parsed
                     .event
                     .as_deref()
-                    .map(|ev| ev == "thread.message.completed")
-                    .unwrap_or(false)
+                    .is_some_and(|ev| ev == "thread.message.completed")
                     || parsed.response.is_some();
 
                 let delta = parsed.delta.clone().or(parsed.content.clone());
@@ -439,8 +432,7 @@ impl LLMClient {
                 })
             }
             Err(e) => Err(AgentError::NetworkError(format!(
-                "Stream read error: {}",
-                e
+                "Stream read error: {e}"
             ))),
         });
 
@@ -452,7 +444,7 @@ impl LLMClient {
 fn calculate_cost(model: &str, tokens: u32) -> f64 {
     // Try centralized pricing from /app/config/models.yaml (returns model price or default)
     if let Some(per_1k) = pricing_cost_per_1k(model) {
-        return (tokens as f64 / 1000.0) * per_1k;
+        return (f64::from(tokens) / 1000.0) * per_1k;
     }
     // Fallback to 0.0 for self-hosted/custom models without pricing config
     // warn!(
@@ -492,7 +484,7 @@ fn pricing_cost_per_1k(model: &str) -> Option<f64> {
         "/app/config/models.yaml".to_string(),
         "./config/models.yaml".to_string(),
     ];
-    for p in candidates.iter() {
+    for p in &candidates {
         if p.is_empty() {
             continue;
         }
@@ -500,27 +492,25 @@ fn pricing_cost_per_1k(model: &str) -> Option<f64> {
         if data.is_err() {
             continue;
         }
-        if let Ok(root) = serde_yaml::from_str::<Root>(&data.unwrap()) {
-            if let Some(pr) = root.pricing {
+        if let Ok(root) = serde_yaml::from_str::<Root>(&data.unwrap())
+            && let Some(pr) = root.pricing {
                 if let Some(models) = pr.models {
-                    for (_prov, mm) in models.iter() {
+                    for mm in models.values() {
                         if let Some(mp) = mm.get(model) {
                             if let Some(c) = mp.combined_per_1k {
                                 return Some(c);
                             }
                             if let (Some(i), Some(o)) = (mp.input_per_1k, mp.output_per_1k) {
-                                return Some((i + o) / 2.0);
+                                return Some(f64::midpoint(i, o));
                             }
                         }
                     }
                 }
-                if let Some(def) = pr.defaults {
-                    if let Some(c) = def.combined_per_1k {
+                if let Some(def) = pr.defaults
+                    && let Some(c) = def.combined_per_1k {
                         return Some(c);
                     }
-                }
             }
-        }
     }
     None
 }

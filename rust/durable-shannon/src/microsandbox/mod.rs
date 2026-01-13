@@ -1,4 +1,4 @@
-//! MicroSandbox: Secure MicroVM Runtime for WASM
+//! `MicroSandbox`: Secure `MicroVM` Runtime for WASM
 //!
 //! Provides a sandboxed environment for executing untrusted WASM modules
 //! with strict resource and capability limits.

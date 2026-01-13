@@ -52,7 +52,7 @@ impl TaskTimer {
 
     pub fn complete(self, status: &str, tokens: Option<i32>) {
         let duration = self.start.elapsed().as_secs_f64();
-        let mode_string = self.mode.to_string();
+        let mode_string = self.mode.clone();
         let status_string = status.to_string();
 
         if let Some(tasks_total) = TASKS_TOTAL.get() {
@@ -64,14 +64,13 @@ impl TaskTimer {
                 .observe(duration);
         }
 
-        if let Some(token_count) = tokens {
-            if let Some(task_tokens) = TASK_TOKENS.get() {
+        if let Some(token_count) = tokens
+            && let Some(task_tokens) = TASK_TOKENS.get() {
                 let default_string = "default".to_string();
                 task_tokens
                     .with_label_values(&[&mode_string, &default_string])
-                    .observe(token_count as f64);
+                    .observe(f64::from(token_count));
             }
-        }
     }
 }
 
@@ -90,7 +89,7 @@ pub fn get_metrics() -> String {
 pub fn init_metrics() -> Result<()> {
     match INIT_RESULT.get_or_init(init_metrics_internal) {
         Ok(()) => Ok(()),
-        Err(e) => Err(anyhow::anyhow!("Metrics initialization failed: {}", e)),
+        Err(e) => Err(anyhow::anyhow!("Metrics initialization failed: {e}")),
     }
 }
 

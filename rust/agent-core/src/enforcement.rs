@@ -44,7 +44,7 @@ impl RequestEnforcer {
 
     async fn rate_check(&self, key: &str) -> Result<()> {
         if let Some(rl) = &self.redis {
-            let cap = self.cfg.rate_limit_per_key_rps as f64;
+            let cap = f64::from(self.cfg.rate_limit_per_key_rps);
             if rl.try_take(key, cap, cap).await? {
                 return Ok(());
             }
@@ -53,7 +53,7 @@ impl RequestEnforcer {
         let mut guard = self.buckets.lock().unwrap();
         let bucket = guard
             .entry(key.to_string())
-            .or_insert_with(|| TokenBucket::new(self.cfg.rate_limit_per_key_rps as f64));
+            .or_insert_with(|| TokenBucket::new(f64::from(self.cfg.rate_limit_per_key_rps)));
         if bucket.try_take(1.0) {
             Ok(())
         } else {
@@ -151,7 +151,7 @@ impl RedisLimiter {
     fn new(url: String, prefix: String, ttl_secs: u64) -> Result<Self> {
         let client = redis::Client::open(url)?;
         let script = Script::new(
-            r#"
+            r"
 local key = KEYS[1]
 local capacity = tonumber(ARGV[1])
 local rate = tonumber(ARGV[2])
@@ -176,7 +176,7 @@ end
 redis.call('HMSET', key, 'tokens', tokens, 'ts', now_ms)
 redis.call('PEXPIRE', key, ttl_ms)
 return allowed
-        "#,
+        ",
         );
         Ok(Self {
             client,
@@ -254,8 +254,8 @@ impl RollingWindow {
         }
     }
     fn prune(&mut self) {
-        let cutoff = Instant::now() - Duration::from_secs(self.window_secs as u64);
-        while let Some((t, ok)) = self.events.front().cloned() {
+        let cutoff = Instant::now().checked_sub(Duration::from_secs(self.window_secs as u64)).unwrap();
+        while let Some((t, ok)) = self.events.front().copied() {
             if t < cutoff {
                 self.events.pop_front();
                 self.total -= 1;

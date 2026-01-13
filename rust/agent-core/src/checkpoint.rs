@@ -49,7 +49,7 @@ impl CheckpointMetadata {
             .unwrap_or(0);
 
         let job_id_str = job_id.into();
-        let id = format!("{}-{}-{}", job_id_str, step, timestamp);
+        let id = format!("{job_id_str}-{step}-{timestamp}");
 
         Self {
             id,
@@ -142,12 +142,12 @@ impl FilesystemCheckpointStore {
 
     /// Get the path for a checkpoint.
     fn checkpoint_path(&self, checkpoint_id: &str) -> PathBuf {
-        self.base_dir.join(format!("{}.checkpoint", checkpoint_id))
+        self.base_dir.join(format!("{checkpoint_id}.checkpoint"))
     }
 
     /// Get the metadata path for a checkpoint.
     fn metadata_path(&self, checkpoint_id: &str) -> PathBuf {
-        self.base_dir.join(format!("{}.meta.json", checkpoint_id))
+        self.base_dir.join(format!("{checkpoint_id}.meta.json"))
     }
 }
 
@@ -182,13 +182,12 @@ impl CheckpointStore for FilesystemCheckpointStore {
         let mut entries = tokio::fs::read_dir(&self.base_dir).await?;
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
-            if path.extension().map_or(false, |e| e == "json") {
+            if path.extension().is_some_and(|e| e == "json") {
                 let content = tokio::fs::read_to_string(&path).await?;
-                if let Ok(metadata) = serde_json::from_str::<CheckpointMetadata>(&content) {
-                    if metadata.job_id == job_id {
+                if let Ok(metadata) = serde_json::from_str::<CheckpointMetadata>(&content)
+                    && metadata.job_id == job_id {
                         checkpoints.push(metadata);
                     }
-                }
             }
         }
 

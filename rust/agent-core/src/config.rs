@@ -352,11 +352,11 @@ impl Config {
     /// Load configuration from a YAML file
     pub fn from_file(path: &str) -> AgentResult<Self> {
         let content = fs::read_to_string(path).map_err(|e| {
-            AgentError::ConfigurationError(format!("Failed to read config file: {}", e))
+            AgentError::ConfigurationError(format!("Failed to read config file: {e}"))
         })?;
 
         let mut config: Config = serde_yaml::from_str(&content).map_err(|e| {
-            AgentError::ConfigurationError(format!("Failed to parse config: {}", e))
+            AgentError::ConfigurationError(format!("Failed to parse config: {e}"))
         })?;
 
         // Apply environment overrides
@@ -370,87 +370,73 @@ impl Config {
         config = apply_feature_defaults(config);
 
         // WASI overrides
-        if let Ok(v) = env::var("WASI_MEMORY_LIMIT_MB") {
-            if let Ok(mb) = v.parse::<usize>() {
+        if let Ok(v) = env::var("WASI_MEMORY_LIMIT_MB")
+            && let Ok(mb) = v.parse::<usize>() {
                 config.wasi.memory_limit_bytes = mb * 1024 * 1024;
             }
-        }
-        if let Ok(v) = env::var("WASI_TIMEOUT_SECONDS") {
-            if let Ok(secs) = v.parse::<u64>() {
+        if let Ok(v) = env::var("WASI_TIMEOUT_SECONDS")
+            && let Ok(secs) = v.parse::<u64>() {
                 config.wasi.execution_timeout_secs = secs;
             }
-        }
 
         // Memory pool overrides
-        if let Ok(v) = env::var("MEMORY_POOL_SIZE_MB") {
-            if let Ok(mb) = v.parse::<usize>() {
+        if let Ok(v) = env::var("MEMORY_POOL_SIZE_MB")
+            && let Ok(mb) = v.parse::<usize>() {
                 config.memory.pool_size_bytes = mb * 1024 * 1024;
             }
-        }
 
         // LLM service overrides
         if let Ok(v) = env::var("LLM_SERVICE_URL") {
             config.llm.base_url = v;
         }
-        if let Ok(v) = env::var("LLM_TIMEOUT_SECONDS") {
-            if let Ok(secs) = v.parse::<u64>() {
+        if let Ok(v) = env::var("LLM_TIMEOUT_SECONDS")
+            && let Ok(secs) = v.parse::<u64>() {
                 config.llm.request_timeout_secs = secs;
             }
-        }
 
         // Metrics overrides
-        if let Ok(v) = env::var("METRICS_PORT") {
-            if let Ok(port) = v.parse::<u16>() {
+        if let Ok(v) = env::var("METRICS_PORT")
+            && let Ok(port) = v.parse::<u16>() {
                 config.metrics.port = port;
             }
-        }
 
         // Enforcement overrides
-        if let Ok(v) = env::var("ENFORCE_TIMEOUT_SECONDS") {
-            if let Ok(secs) = v.parse::<u64>() {
+        if let Ok(v) = env::var("ENFORCE_TIMEOUT_SECONDS")
+            && let Ok(secs) = v.parse::<u64>() {
                 config.enforcement.per_request_timeout_secs = secs;
             }
-        }
-        if let Ok(v) = env::var("ENFORCE_MAX_TOKENS") {
-            if let Ok(n) = v.parse::<usize>() {
+        if let Ok(v) = env::var("ENFORCE_MAX_TOKENS")
+            && let Ok(n) = v.parse::<usize>() {
                 config.enforcement.per_request_max_tokens = n;
             }
-        }
-        if let Ok(v) = env::var("ENFORCE_RATE_RPS") {
-            if let Ok(n) = v.parse::<u32>() {
+        if let Ok(v) = env::var("ENFORCE_RATE_RPS")
+            && let Ok(n) = v.parse::<u32>() {
                 config.enforcement.rate_limit_per_key_rps = n;
             }
-        }
-        if let Ok(v) = env::var("ENFORCE_CB_ERROR_THRESHOLD") {
-            if let Ok(f) = v.parse::<f64>() {
+        if let Ok(v) = env::var("ENFORCE_CB_ERROR_THRESHOLD")
+            && let Ok(f) = v.parse::<f64>() {
                 config.enforcement.circuit_breaker_error_threshold = f;
             }
-        }
-        if let Ok(v) = env::var("ENFORCE_CB_WINDOW_SECONDS") {
-            if let Ok(secs) = v.parse::<u64>() {
+        if let Ok(v) = env::var("ENFORCE_CB_WINDOW_SECONDS")
+            && let Ok(secs) = v.parse::<u64>() {
                 config.enforcement.circuit_breaker_rolling_window_secs = secs;
             }
-        }
-        if let Ok(v) = env::var("ENFORCE_CB_MIN_REQUESTS") {
-            if let Ok(n) = v.parse::<u32>() {
+        if let Ok(v) = env::var("ENFORCE_CB_MIN_REQUESTS")
+            && let Ok(n) = v.parse::<u32>() {
                 config.enforcement.circuit_breaker_min_requests = n;
             }
-        }
-        if let Ok(v) = env::var("ENFORCE_RATE_REDIS_URL") {
-            if !v.is_empty() {
+        if let Ok(v) = env::var("ENFORCE_RATE_REDIS_URL")
+            && !v.is_empty() {
                 config.enforcement.rate_redis_url = Some(v);
             }
-        }
-        if let Ok(v) = env::var("ENFORCE_RATE_REDIS_PREFIX") {
-            if !v.is_empty() {
+        if let Ok(v) = env::var("ENFORCE_RATE_REDIS_PREFIX")
+            && !v.is_empty() {
                 config.enforcement.rate_redis_prefix = v;
             }
-        }
-        if let Ok(v) = env::var("ENFORCE_RATE_REDIS_TTL") {
-            if let Ok(secs) = v.parse::<u64>() {
+        if let Ok(v) = env::var("ENFORCE_RATE_REDIS_TTL")
+            && let Ok(secs) = v.parse::<u64>() {
                 config.enforcement.rate_redis_ttl_secs = secs;
             }
-        }
 
         config
     }
@@ -459,7 +445,7 @@ impl Config {
     pub fn global() -> AgentResult<Config> {
         let guard = CONFIG
             .read()
-            .map_err(|e| AgentError::InternalError(format!("Config lock poisoned: {}", e)))?;
+            .map_err(|e| AgentError::InternalError(format!("Config lock poisoned: {e}")))?;
 
         if let Some(ref config) = *guard {
             Ok(config.clone())
@@ -475,7 +461,7 @@ impl Config {
 
         let mut guard = CONFIG
             .write()
-            .map_err(|e| AgentError::InternalError(format!("Config lock poisoned: {}", e)))?;
+            .map_err(|e| AgentError::InternalError(format!("Config lock poisoned: {e}")))?;
 
         *guard = Some(config.clone());
         Ok(config)
@@ -486,7 +472,7 @@ impl Config {
     pub fn update(config: Config) -> AgentResult<()> {
         let mut guard = CONFIG
             .write()
-            .map_err(|e| AgentError::InternalError(format!("Config lock poisoned: {}", e)))?;
+            .map_err(|e| AgentError::InternalError(format!("Config lock poisoned: {e}")))?;
 
         *guard = Some(config);
         Ok(())
@@ -573,50 +559,40 @@ struct FeatureCircuitBreaker {
 
 fn apply_feature_defaults(mut config: Config) -> Config {
     if let Some(features) = load_feature_overrides() {
-        if let Some(workflows) = features.workflows {
-            if let Some(tool_exec) = workflows.tool_execution {
-                if let Some(parallelism) = tool_exec.parallelism {
-                    if parallelism > 0 {
+        if let Some(workflows) = features.workflows
+            && let Some(tool_exec) = workflows.tool_execution
+                && let Some(parallelism) = tool_exec.parallelism
+                    && parallelism > 0 {
                         config.tools.max_concurrent_executions = parallelism;
                     }
-                }
-            }
-        }
 
         if let Some(enforcement) = features.enforcement {
-            if let Some(timeout) = enforcement.timeout_seconds {
-                if timeout > 0 {
+            if let Some(timeout) = enforcement.timeout_seconds
+                && timeout > 0 {
                     config.enforcement.per_request_timeout_secs = timeout;
                 }
-            }
-            if let Some(max_tokens) = enforcement.max_tokens {
-                if max_tokens > 0 {
+            if let Some(max_tokens) = enforcement.max_tokens
+                && max_tokens > 0 {
                     config.enforcement.per_request_max_tokens = max_tokens;
                 }
-            }
-            if let Some(rate) = enforcement.rate_limiting {
-                if let Some(rps) = rate.rps {
-                    if rps > 0 {
+            if let Some(rate) = enforcement.rate_limiting
+                && let Some(rps) = rate.rps
+                    && rps > 0 {
                         config.enforcement.rate_limit_per_key_rps = rps;
                     }
-                }
-            }
             if let Some(cb) = enforcement.circuit_breaker {
-                if let Some(threshold) = cb.error_threshold {
-                    if threshold >= 0.0 {
+                if let Some(threshold) = cb.error_threshold
+                    && threshold >= 0.0 {
                         config.enforcement.circuit_breaker_error_threshold = threshold;
                     }
-                }
-                if let Some(min_requests) = cb.min_requests {
-                    if min_requests > 0 {
+                if let Some(min_requests) = cb.min_requests
+                    && min_requests > 0 {
                         config.enforcement.circuit_breaker_min_requests = min_requests;
                     }
-                }
-                if let Some(window) = cb.window_seconds {
-                    if window > 0 {
+                if let Some(window) = cb.window_seconds
+                    && window > 0 {
                         config.enforcement.circuit_breaker_rolling_window_secs = window;
                     }
-                }
             }
         }
     }
@@ -631,8 +607,8 @@ fn load_feature_overrides() -> Option<FeatureOverrides> {
 }
 
 fn features_path() -> Option<String> {
-    if let Ok(env_path) = env::var("CONFIG_PATH") {
-        if !env_path.trim().is_empty() {
+    if let Ok(env_path) = env::var("CONFIG_PATH")
+        && !env_path.trim().is_empty() {
             let candidate = PathBuf::from(&env_path);
             if candidate.is_dir() {
                 let file = candidate.join("features.yaml");
@@ -643,13 +619,12 @@ fn features_path() -> Option<String> {
                 return Some(env_path);
             }
         }
-    }
 
     let defaults = ["/app/config/features.yaml", "config/features.yaml"];
 
-    for path in defaults.iter() {
+    for path in &defaults {
         if Path::new(path).exists() {
-            return Some(path.to_string());
+            return Some((*path).to_string());
         }
     }
 

@@ -32,7 +32,7 @@ pub fn init_tracing() -> AgentResult<()> {
         .with_endpoint(endpoint.clone())
         .with_timeout(Duration::from_secs(3))
         .build()
-        .map_err(|e| AgentError::InternalError(format!("Failed to create exporter: {}", e)))?;
+        .map_err(|e| AgentError::InternalError(format!("Failed to create exporter: {e}")))?;
 
     // Build trace provider
     let tracer_provider = trace::TracerProvider::builder()
@@ -100,13 +100,13 @@ pub fn extract_trace_context(headers: &http::HeaderMap) -> opentelemetry::Contex
 
     struct HeaderExtractor<'a>(&'a http::HeaderMap);
 
-    impl<'a> Extractor for HeaderExtractor<'a> {
+    impl Extractor for HeaderExtractor<'_> {
         fn get(&self, key: &str) -> Option<&str> {
             self.0.get(key).and_then(|v| v.to_str().ok())
         }
 
         fn keys(&self) -> Vec<&str> {
-            self.0.keys().map(|k| k.as_str()).collect()
+            self.0.keys().map(http::HeaderName::as_str).collect()
         }
     }
 
@@ -122,13 +122,12 @@ pub fn inject_trace_context(context: &opentelemetry::Context, headers: &mut http
 
     struct HeaderInjector<'a>(&'a mut http::HeaderMap);
 
-    impl<'a> Injector for HeaderInjector<'a> {
+    impl Injector for HeaderInjector<'_> {
         fn set(&mut self, key: &str, value: String) {
-            if let Ok(header_name) = http::header::HeaderName::from_bytes(key.as_bytes()) {
-                if let Ok(header_value) = http::header::HeaderValue::from_str(&value) {
+            if let Ok(header_name) = http::header::HeaderName::from_bytes(key.as_bytes())
+                && let Ok(header_value) = http::header::HeaderValue::from_str(&value) {
                     self.0.insert(header_name, header_value);
                 }
-            }
         }
     }
 
@@ -145,13 +144,12 @@ pub fn inject_current_trace_context(headers: &mut http::HeaderMap) {
 
     struct HeaderInjector<'a>(&'a mut http::HeaderMap);
 
-    impl<'a> Injector for HeaderInjector<'a> {
+    impl Injector for HeaderInjector<'_> {
         fn set(&mut self, key: &str, value: String) {
-            if let Ok(header_name) = http::header::HeaderName::from_bytes(key.as_bytes()) {
-                if let Ok(header_value) = http::header::HeaderValue::from_str(&value) {
+            if let Ok(header_name) = http::header::HeaderName::from_bytes(key.as_bytes())
+                && let Ok(header_value) = http::header::HeaderValue::from_str(&value) {
                     self.0.insert(header_name, header_value);
                 }
-            }
         }
     }
 

@@ -2,13 +2,12 @@ use std::path::Path;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Ensure a usable `protoc` is available (vendored fallback)
-    if std::env::var_os("PROTOC").is_none() {
-        if let Ok(pb) = protoc_bin_vendored::protoc_bin_path() {
+    if std::env::var_os("PROTOC").is_none()
+        && let Ok(pb) = protoc_bin_vendored::protoc_bin_path() {
             unsafe {
                 std::env::set_var("PROTOC", pb);
             }
         }
-    }
     // Determine proto path - check if we're in Docker or local
     let proto_path = if Path::new("/protos").exists() {
         // Docker environment
@@ -18,8 +17,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "../../protos"
     };
 
-    let common_proto = format!("{}/common/common.proto", proto_path);
-    let agent_proto = format!("{}/agent/agent.proto", proto_path);
+    let common_proto = format!("{proto_path}/common/common.proto");
+    let agent_proto = format!("{proto_path}/agent/agent.proto");
 
     // Compile protobuf files with tonic-prost-build 0.14 API
     let proto_path_string = proto_path.to_string();

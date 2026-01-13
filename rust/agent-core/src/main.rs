@@ -11,7 +11,7 @@ use shannon_agent_core::grpc_server::AgentServiceImpl;
 async fn main() -> Result<()> {
     // Initialize OpenTelemetry tracing
     if let Err(e) = trace_mod::init_tracing() {
-        eprintln!("Failed to initialize tracing: {}", e);
+        eprintln!("Failed to initialize tracing: {e}");
         // Fall back to basic logging
     }
 

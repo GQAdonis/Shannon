@@ -218,14 +218,14 @@ impl JobExecutor for LlmExecutor {
                 if resp.status().is_success() {
                     match resp.text().await {
                         Ok(content) => ResearchResult::success(job.id, content, execution_time_ms),
-                        Err(e) => ResearchResult::failure(job.id, format!("Failed to read response: {}", e), execution_time_ms),
+                        Err(e) => ResearchResult::failure(job.id, format!("Failed to read response: {e}"), execution_time_ms),
                     }
                 } else {
                     let error = resp.text().await.unwrap_or_else(|_| "Unknown error".to_string());
                     ResearchResult::failure(job.id, error, execution_time_ms)
                 }
             }
-            Err(e) => ResearchResult::failure(job.id, format!("Request failed: {}", e), execution_time_ms),
+            Err(e) => ResearchResult::failure(job.id, format!("Request failed: {e}"), execution_time_ms),
         }
     }
 }
@@ -405,7 +405,7 @@ impl ResearchPool {
         // Send to worker pool
         self.job_sender
             .try_send(job)
-            .map_err(|e| anyhow::anyhow!("Failed to submit job: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to submit job: {e}"))?;
 
         Ok(job_id)
     }
@@ -433,7 +433,7 @@ impl ResearchPool {
         // Send to worker pool
         self.job_sender
             .try_send(job)
-            .map_err(|e| anyhow::anyhow!("Failed to submit job: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to submit job: {e}"))?;
 
         // Wait for result
         rx.await
@@ -455,12 +455,11 @@ impl ResearchPool {
     /// Cancel a job.
     pub fn cancel(&self, job_id: &str) -> bool {
         let mut jobs = self.jobs.write();
-        if let Some(state) = jobs.get_mut(job_id) {
-            if state.status == JobStatus::Queued {
+        if let Some(state) = jobs.get_mut(job_id)
+            && state.status == JobStatus::Queued {
                 state.status = JobStatus::Cancelled;
                 return true;
             }
-        }
         false
     }
 

@@ -8,7 +8,7 @@ use std::time::Duration;
 use tokio::sync::RwLock as TokioRwLock;
 use tokio::time::timeout;
 use tracing::{debug, error, info, warn};
-use wasmtime::*;
+use wasmtime::{Module, Engine, Result, MaybeUninitExt, Store, Linker};
 
 #[cfg(target_os = "linux")]
 use libc::{rlimit, setrlimit, RLIMIT_AS, RLIMIT_CPU, RLIMIT_NOFILE, RLIMIT_NPROC};
@@ -243,7 +243,7 @@ impl WasmSandbox {
 
         // Validate path is allowed
         if !self.validate_path(tool_path) {
-            anyhow::bail!("Tool path not in allowed list: {:?}", tool_path);
+            anyhow::bail!("Tool path not in allowed list: {tool_path:?}");
         }
 
         let tool_name = tool_path
@@ -318,7 +318,7 @@ impl WasmSandbox {
                             .inc();
                     }
                     let stderr = String::from_utf8_lossy(&output.stderr);
-                    anyhow::bail!("Tool execution failed: {}", stderr)
+                    anyhow::bail!("Tool execution failed: {stderr}")
                 }
             }
             Ok(Err(e)) => {
@@ -327,7 +327,7 @@ impl WasmSandbox {
                         .with_label_values(&[tool_name, "error"])
                         .inc();
                 }
-                anyhow::bail!("Tool execution error: {}", e)
+                anyhow::bail!("Tool execution error: {e}")
             }
             Err(_) => {
                 if let Some(tool_executions) = TOOL_EXECUTIONS.get() {
@@ -417,28 +417,25 @@ impl WasmSandbox {
                     if let Some(func) = instance.get_func(&mut store, "execute") {
                         // Call the function with no parameters
                         match func.call(&mut store, &[], &mut []) {
-                            Ok(_) => format!(
-                                "[SANDBOXED] Executed WASM module successfully\nInput: {}",
-                                input
+                            Ok(()) => format!(
+                                "[SANDBOXED] Executed WASM module successfully\nInput: {input}"
                             )
                             .into_bytes(),
                             Err(e) => {
-                                format!("[SANDBOXED] WASM execution error: {}\nInput: {}", e, input)
+                                format!("[SANDBOXED] WASM execution error: {e}\nInput: {input}")
                                     .into_bytes()
                             }
                         }
                     } else {
                         // No execute function, just indicate the module was loaded
                         format!(
-                            "[SANDBOXED] WASM module loaded (no execute function)\nInput: {}",
-                            input
+                            "[SANDBOXED] WASM module loaded (no execute function)\nInput: {input}"
                         )
                         .into_bytes()
                     }
                 }
                 Err(e) => format!(
-                    "[SANDBOXED] Failed to instantiate WASM module: {}\nInput: {}",
-                    e, input
+                    "[SANDBOXED] Failed to instantiate WASM module: {e}\nInput: {input}"
                 )
                 .into_bytes(),
             };

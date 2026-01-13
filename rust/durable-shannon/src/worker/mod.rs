@@ -251,7 +251,7 @@ impl<E: EventLog + 'static> EmbeddedWorker<E> {
         })
     }
 
-    /// Execute a workflow using MicroSandbox with pause/resume support.
+    /// Execute a workflow using `MicroSandbox` with pause/resume support.
     async fn execute_workflow(
         event_log: Arc<E>,
         wasm_dir: PathBuf,
@@ -262,7 +262,7 @@ impl<E: EventLog + 'static> EmbeddedWorker<E> {
     ) -> anyhow::Result<serde_json::Value> {
         use crate::microsandbox::{SandboxCapabilities, WasmSandbox};
 
-        let wasm_path = wasm_dir.join(format!("{}.wasm", workflow_type));
+        let wasm_path = wasm_dir.join(format!("{workflow_type}.wasm"));
 
         let wasm_bytes = if wasm_path.exists() {
             tracing::info!("Loading WASM workflow from {:?}", wasm_path);
@@ -434,7 +434,7 @@ impl<E: EventLog + 'static> EmbeddedWorker<E> {
         workflows
             .get(workflow_id)
             .map(|w| w.state)
-            .ok_or_else(|| anyhow::anyhow!("Workflow not found: {}", workflow_id))
+            .ok_or_else(|| anyhow::anyhow!("Workflow not found: {workflow_id}"))
     }
 
     /// Cancel a workflow.
@@ -467,7 +467,7 @@ struct ControlState {
 impl<E: EventLog + 'static> EmbeddedWorker<E> {
     /// Get control state for a workflow.
     ///
-    /// Note: This requires the EventLog to be a HybridBackend with control state support.
+    /// Note: This requires the `EventLog` to be a `HybridBackend` with control state support.
     /// Returns None if control state is not available (e.g., in-memory backend).
     async fn get_control_state(
         _event_log: &Arc<E>,

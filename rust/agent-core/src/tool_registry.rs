@@ -239,17 +239,15 @@ impl ToolRegistry {
 
         for tool in tools.values() {
             // Apply filters
-            if let Some(exclude_dangerous) = request.exclude_dangerous {
-                if exclude_dangerous && tool.is_dangerous {
+            if let Some(exclude_dangerous) = request.exclude_dangerous
+                && exclude_dangerous && tool.is_dangerous {
                     continue;
                 }
-            }
 
-            if let Some(categories) = &request.categories {
-                if !categories.contains(&tool.category) {
+            if let Some(categories) = &request.categories
+                && !categories.contains(&tool.category) {
                     continue;
                 }
-            }
 
             if let Some(tags) = &request.tags {
                 let has_tag = tags.iter().any(|t| tool.tags.contains(t));
@@ -305,7 +303,7 @@ impl ToolRegistry {
         }
 
         for (category, count) in category_counts {
-            stats.insert(format!("category_{}", category), count);
+            stats.insert(format!("category_{category}"), count);
         }
 
         stats

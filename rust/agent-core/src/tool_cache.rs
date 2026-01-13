@@ -97,7 +97,12 @@ impl ToolCache {
         stats.total_requests += 1;
 
         if let Some(cached) = cache.get_mut(&key) {
-            if !cached.is_expired() {
+            if cached.is_expired() {
+                // Remove expired entry
+                debug!("Cache entry expired for tool '{}'", call.tool_name);
+                cache.remove(&key);
+                stats.evictions += 1;
+            } else {
                 cached.hit_count += 1;
                 cached.last_accessed = Instant::now(); // Update for LRU
                 stats.cache_hits += 1;
@@ -108,11 +113,6 @@ impl ToolCache {
                     cached.cached_at.elapsed()
                 );
                 return Some(cached.result.clone());
-            } else {
-                // Remove expired entry
-                debug!("Cache entry expired for tool '{}'", call.tool_name);
-                cache.remove(&key);
-                stats.evictions += 1;
             }
         }
 

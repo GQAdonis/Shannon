@@ -22,8 +22,7 @@ fn init_memory_metrics() -> Result<()> {
     match MEMORY_INIT_RESULT.get_or_init(init_memory_metrics_internal) {
         Ok(()) => Ok(()),
         Err(e) => Err(anyhow::anyhow!(
-            "Memory metrics initialization failed: {}",
-            e
+            "Memory metrics initialization failed: {e}"
         )),
     }
 }
@@ -498,9 +497,9 @@ impl MemoryPool {
         let usage_percent = (current as f64 / max as f64) * 100.0;
 
         if usage_percent > 90.0 {
-            warnings.push(format!("Critical: Memory usage at {:.1}%", usage_percent));
+            warnings.push(format!("Critical: Memory usage at {usage_percent:.1}%"));
         } else if usage_percent > 75.0 {
-            warnings.push(format!("Warning: Memory usage at {:.1}%", usage_percent));
+            warnings.push(format!("Warning: Memory usage at {usage_percent:.1}%"));
         }
 
         let pools = self.pools.read().await;
@@ -514,8 +513,7 @@ impl MemoryPool {
 
         if expired_count > 10 {
             warnings.push(format!(
-                "Warning: {} expired entries not cleaned up",
-                expired_count
+                "Warning: {expired_count} expired entries not cleaned up"
             ));
         }
 

@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 use tracing::{debug, info, warn};
-use wasmtime::*;
+use wasmtime::{Engine, Result, MaybeUninitExt, Module, ExternType, ResourceLimiter, ResourceLimiterAsync, Store, Linker};
 use wasmtime_wasi::p2::pipe::{MemoryInputPipe, MemoryOutputPipe};
 use wasmtime_wasi::{DirPerms, FilePerms, WasiCtxBuilder};
 
@@ -176,15 +176,14 @@ impl WasiSandbox {
                 .context("Failed to compile WASM module for inspection")?;
             let mut exceeds = false;
             for export in tmp_module.exports() {
-                if let ExternType::Memory(mem_ty) = export.ty() {
-                    if let Some(max_pages) = mem_ty.maximum() {
+                if let ExternType::Memory(mem_ty) = export.ty()
+                    && let Some(max_pages) = mem_ty.maximum() {
                         let max_bytes = (max_pages as usize) * (64 * 1024);
                         if max_bytes > self.memory_limit {
                             exceeds = true;
                             break;
                         }
                     }
-                }
             }
             if exceeds {
                 return Err(anyhow::anyhow!(
@@ -351,7 +350,7 @@ impl WasiSandbox {
             // Compile module
             let module = Module::new(&engine, &wasm_bytes).map_err(|e| {
                 warn!("WASI: Failed to compile WASM module: {}", e);
-                anyhow::anyhow!("Failed to compile WASM module: {}", e)
+                anyhow::anyhow!("Failed to compile WASM module: {e}")
             })?;
 
             // Create store with WASI context and resource limits
@@ -389,7 +388,7 @@ impl WasiSandbox {
             // Execute the module
             let instance = linker.instantiate(&mut store, &module).map_err(|e| {
                 warn!("WASI: Failed to instantiate WASM module: {}", e);
-                anyhow::anyhow!("Failed to instantiate WASM module: {}", e)
+                anyhow::anyhow!("Failed to instantiate WASM module: {e}")
             })?;
 
             // Try to call _start (WASI main entry point)
@@ -404,7 +403,7 @@ impl WasiSandbox {
 
             // Handle execution result
             match execution_result {
-                Ok(_) => {
+                Ok(()) => {
                     debug!("WASI: Module executed successfully within security constraints");
                     // Read captured stdout (best-effort)
                     let out_bytes = stdout_reader.contents();
@@ -425,7 +424,7 @@ impl WasiSandbox {
                     warn!("WASI: Module execution failed: {}", e);
                     let err_bytes = stderr_reader.contents();
                     let err_out = String::from_utf8_lossy(err_bytes.as_ref()).to_string();
-                    let error_msg = format!("[WASI] Execution failed: {}\n{}", e, err_out);
+                    let error_msg = format!("[WASI] Execution failed: {e}\n{err_out}");
                     if let Some(tool_executions) = TOOL_EXECUTIONS.get() {
                         tool_executions.with_label_values(&["wasi", "error"]).inc();
                     }
@@ -456,8 +455,7 @@ impl WasiSandbox {
                 warn!("WASI: Allowed path does not exist: {:?}", path);
             } else if !path.is_dir() {
                 return Err(anyhow::anyhow!(
-                    "WASI: Allowed path is not a directory: {:?}",
-                    path
+                    "WASI: Allowed path is not a directory: {path:?}"
                 ));
             }
         }

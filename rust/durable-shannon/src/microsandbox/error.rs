@@ -1,4 +1,4 @@
-//! Errors for the MicroSandbox MicroVM subsystem.
+//! Errors for the `MicroSandbox` `MicroVM` subsystem.
 
 use thiserror::Error;
 
