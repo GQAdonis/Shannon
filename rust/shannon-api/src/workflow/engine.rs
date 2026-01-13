@@ -333,7 +333,7 @@ impl DurableEngine {
     /// Execute a task in the background.
     ///
     /// This spawns a tokio task that executes the workflow locally.
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     async fn execute_task(&self, task: Task, tx: broadcast::Sender<TaskEvent>) {
         let task_id = task.id.clone();
         let _workflow_id = format!("durable-{}", task.id);
@@ -409,7 +409,7 @@ impl DurableEngine {
     /// This is the core execution logic for embedded mode.
     /// Currently implements a basic execution loop; will be replaced
     /// with durable-shannon integration for full WASM workflow support.
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     async fn run_local_workflow(
         &self,
         task: &Task,

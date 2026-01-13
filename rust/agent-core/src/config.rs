@@ -355,9 +355,8 @@ impl Config {
             AgentError::ConfigurationError(format!("Failed to read config file: {e}"))
         })?;
 
-        let mut config: Config = serde_yaml::from_str(&content).map_err(|e| {
-            AgentError::ConfigurationError(format!("Failed to parse config: {e}"))
-        })?;
+        let mut config: Config = serde_yaml::from_str(&content)
+            .map_err(|e| AgentError::ConfigurationError(format!("Failed to parse config: {e}")))?;
 
         // Apply environment overrides
         config = Self::from_env(config);
@@ -371,72 +370,86 @@ impl Config {
 
         // WASI overrides
         if let Ok(v) = env::var("WASI_MEMORY_LIMIT_MB")
-            && let Ok(mb) = v.parse::<usize>() {
-                config.wasi.memory_limit_bytes = mb * 1024 * 1024;
-            }
+            && let Ok(mb) = v.parse::<usize>()
+        {
+            config.wasi.memory_limit_bytes = mb * 1024 * 1024;
+        }
         if let Ok(v) = env::var("WASI_TIMEOUT_SECONDS")
-            && let Ok(secs) = v.parse::<u64>() {
-                config.wasi.execution_timeout_secs = secs;
-            }
+            && let Ok(secs) = v.parse::<u64>()
+        {
+            config.wasi.execution_timeout_secs = secs;
+        }
 
         // Memory pool overrides
         if let Ok(v) = env::var("MEMORY_POOL_SIZE_MB")
-            && let Ok(mb) = v.parse::<usize>() {
-                config.memory.pool_size_bytes = mb * 1024 * 1024;
-            }
+            && let Ok(mb) = v.parse::<usize>()
+        {
+            config.memory.pool_size_bytes = mb * 1024 * 1024;
+        }
 
         // LLM service overrides
         if let Ok(v) = env::var("LLM_SERVICE_URL") {
             config.llm.base_url = v;
         }
         if let Ok(v) = env::var("LLM_TIMEOUT_SECONDS")
-            && let Ok(secs) = v.parse::<u64>() {
-                config.llm.request_timeout_secs = secs;
-            }
+            && let Ok(secs) = v.parse::<u64>()
+        {
+            config.llm.request_timeout_secs = secs;
+        }
 
         // Metrics overrides
         if let Ok(v) = env::var("METRICS_PORT")
-            && let Ok(port) = v.parse::<u16>() {
-                config.metrics.port = port;
-            }
+            && let Ok(port) = v.parse::<u16>()
+        {
+            config.metrics.port = port;
+        }
 
         // Enforcement overrides
         if let Ok(v) = env::var("ENFORCE_TIMEOUT_SECONDS")
-            && let Ok(secs) = v.parse::<u64>() {
-                config.enforcement.per_request_timeout_secs = secs;
-            }
+            && let Ok(secs) = v.parse::<u64>()
+        {
+            config.enforcement.per_request_timeout_secs = secs;
+        }
         if let Ok(v) = env::var("ENFORCE_MAX_TOKENS")
-            && let Ok(n) = v.parse::<usize>() {
-                config.enforcement.per_request_max_tokens = n;
-            }
+            && let Ok(n) = v.parse::<usize>()
+        {
+            config.enforcement.per_request_max_tokens = n;
+        }
         if let Ok(v) = env::var("ENFORCE_RATE_RPS")
-            && let Ok(n) = v.parse::<u32>() {
-                config.enforcement.rate_limit_per_key_rps = n;
-            }
+            && let Ok(n) = v.parse::<u32>()
+        {
+            config.enforcement.rate_limit_per_key_rps = n;
+        }
         if let Ok(v) = env::var("ENFORCE_CB_ERROR_THRESHOLD")
-            && let Ok(f) = v.parse::<f64>() {
-                config.enforcement.circuit_breaker_error_threshold = f;
-            }
+            && let Ok(f) = v.parse::<f64>()
+        {
+            config.enforcement.circuit_breaker_error_threshold = f;
+        }
         if let Ok(v) = env::var("ENFORCE_CB_WINDOW_SECONDS")
-            && let Ok(secs) = v.parse::<u64>() {
-                config.enforcement.circuit_breaker_rolling_window_secs = secs;
-            }
+            && let Ok(secs) = v.parse::<u64>()
+        {
+            config.enforcement.circuit_breaker_rolling_window_secs = secs;
+        }
         if let Ok(v) = env::var("ENFORCE_CB_MIN_REQUESTS")
-            && let Ok(n) = v.parse::<u32>() {
-                config.enforcement.circuit_breaker_min_requests = n;
-            }
+            && let Ok(n) = v.parse::<u32>()
+        {
+            config.enforcement.circuit_breaker_min_requests = n;
+        }
         if let Ok(v) = env::var("ENFORCE_RATE_REDIS_URL")
-            && !v.is_empty() {
-                config.enforcement.rate_redis_url = Some(v);
-            }
+            && !v.is_empty()
+        {
+            config.enforcement.rate_redis_url = Some(v);
+        }
         if let Ok(v) = env::var("ENFORCE_RATE_REDIS_PREFIX")
-            && !v.is_empty() {
-                config.enforcement.rate_redis_prefix = v;
-            }
+            && !v.is_empty()
+        {
+            config.enforcement.rate_redis_prefix = v;
+        }
         if let Ok(v) = env::var("ENFORCE_RATE_REDIS_TTL")
-            && let Ok(secs) = v.parse::<u64>() {
-                config.enforcement.rate_redis_ttl_secs = secs;
-            }
+            && let Ok(secs) = v.parse::<u64>()
+        {
+            config.enforcement.rate_redis_ttl_secs = secs;
+        }
 
         config
     }
@@ -468,7 +481,7 @@ impl Config {
     }
 
     /// Update the global configuration
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     pub fn update(config: Config) -> AgentResult<()> {
         let mut guard = CONFIG
             .write()
@@ -489,13 +502,13 @@ impl Config {
     }
 
     /// Get memory cache TTL as Duration
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     pub fn memory_ttl(&self) -> Duration {
         Duration::from_secs(self.memory.cache_ttl_secs)
     }
 
     /// Get tool execution timeout as Duration
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     pub fn tool_timeout(&self) -> Duration {
         Duration::from_secs(self.tools.default_timeout_secs)
     }
@@ -561,38 +574,45 @@ fn apply_feature_defaults(mut config: Config) -> Config {
     if let Some(features) = load_feature_overrides() {
         if let Some(workflows) = features.workflows
             && let Some(tool_exec) = workflows.tool_execution
-                && let Some(parallelism) = tool_exec.parallelism
-                    && parallelism > 0 {
-                        config.tools.max_concurrent_executions = parallelism;
-                    }
+            && let Some(parallelism) = tool_exec.parallelism
+            && parallelism > 0
+        {
+            config.tools.max_concurrent_executions = parallelism;
+        }
 
         if let Some(enforcement) = features.enforcement {
             if let Some(timeout) = enforcement.timeout_seconds
-                && timeout > 0 {
-                    config.enforcement.per_request_timeout_secs = timeout;
-                }
+                && timeout > 0
+            {
+                config.enforcement.per_request_timeout_secs = timeout;
+            }
             if let Some(max_tokens) = enforcement.max_tokens
-                && max_tokens > 0 {
-                    config.enforcement.per_request_max_tokens = max_tokens;
-                }
+                && max_tokens > 0
+            {
+                config.enforcement.per_request_max_tokens = max_tokens;
+            }
             if let Some(rate) = enforcement.rate_limiting
                 && let Some(rps) = rate.rps
-                    && rps > 0 {
-                        config.enforcement.rate_limit_per_key_rps = rps;
-                    }
+                && rps > 0
+            {
+                config.enforcement.rate_limit_per_key_rps = rps;
+            }
             if let Some(cb) = enforcement.circuit_breaker {
                 if let Some(threshold) = cb.error_threshold
-                    && threshold >= 0.0 {
-                        config.enforcement.circuit_breaker_error_threshold = threshold;
-                    }
+                    && threshold >= 0.0
+                {
+                    config.enforcement.circuit_breaker_error_threshold = threshold;
+                }
                 if let Some(min_requests) = cb.min_requests
-                    && min_requests > 0 {
-                        config.enforcement.circuit_breaker_min_requests = min_requests;
-                    }
+                    && min_requests > 0
+                {
+                    config.enforcement.circuit_breaker_min_requests = min_requests;
+                }
                 if let Some(window) = cb.window_seconds
-                    && window > 0 {
-                        config.enforcement.circuit_breaker_rolling_window_secs = window;
-                    }
+                    && window > 0
+                {
+                    config.enforcement.circuit_breaker_rolling_window_secs = window;
+                }
             }
         }
     }
@@ -608,17 +628,18 @@ fn load_feature_overrides() -> Option<FeatureOverrides> {
 
 fn features_path() -> Option<String> {
     if let Ok(env_path) = env::var("CONFIG_PATH")
-        && !env_path.trim().is_empty() {
-            let candidate = PathBuf::from(&env_path);
-            if candidate.is_dir() {
-                let file = candidate.join("features.yaml");
-                if file.exists() {
-                    return Some(file.to_string_lossy().to_string());
-                }
-            } else if candidate.exists() {
-                return Some(env_path);
+        && !env_path.trim().is_empty()
+    {
+        let candidate = PathBuf::from(&env_path);
+        if candidate.is_dir() {
+            let file = candidate.join("features.yaml");
+            if file.exists() {
+                return Some(file.to_string_lossy().to_string());
             }
+        } else if candidate.exists() {
+            return Some(env_path);
         }
+    }
 
     let defaults = ["/app/config/features.yaml", "config/features.yaml"];
 
@@ -651,7 +672,9 @@ mod tests {
     #[serial]
     fn test_env_overrides() {
         // Clean up first to ensure no interference from other tests
-        // SAFETY: These are test environment variables and we're in a controlled test environment
+        // SAFETY: Setting/removing test environment variables in a single-threaded test context
+        // (serial_test ensures no concurrent test execution). The variables are only used by
+        // this test and don't affect other threads. Test cleanup ensures no pollution.
         unsafe {
             env::remove_var("WASI_MEMORY_LIMIT_MB");
             env::remove_var("LLM_SERVICE_URL");
@@ -659,7 +682,9 @@ mod tests {
         }
 
         // Set test values
-        // SAFETY: These are test environment variables and we're in a controlled test environment
+        // SAFETY: Setting test environment variables in a single-threaded test context
+        // (serial_test ensures no concurrent test execution). The variables are only used by
+        // this test and don't affect other threads.
         unsafe {
             env::set_var("WASI_MEMORY_LIMIT_MB", "512");
             env::set_var("LLM_SERVICE_URL", "http://custom:9000");
@@ -673,7 +698,8 @@ mod tests {
         assert_eq!(config.metrics.port, 3000);
 
         // Clean up
-        // SAFETY: These are test environment variables and we're in a controlled test environment
+        // SAFETY: Removing test environment variables in a single-threaded test context
+        // (serial_test ensures no concurrent test execution). Test cleanup prevents pollution.
         unsafe {
             env::remove_var("WASI_MEMORY_LIMIT_MB");
             env::remove_var("LLM_SERVICE_URL");
@@ -695,7 +721,8 @@ mod tests {
     #[serial]
     fn test_global_config() {
         // Clear any existing environment variables that might interfere
-        // SAFETY: These are test environment variables and we're in a controlled test environment
+        // SAFETY: Removing test environment variables in a single-threaded test context
+        // (serial_test ensures no concurrent test execution). Test cleanup prevents interference.
         unsafe {
             env::remove_var("AGENT_CORE_METRICS_PORT");
             env::remove_var("METRICS_PORT");

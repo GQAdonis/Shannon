@@ -64,7 +64,7 @@ impl WorkflowStatus {
     /// # Errors
     ///
     /// Returns error if status string is invalid.
-    #[allow(clippy::should_implement_trait, reason = "Different signature than std::str::FromStr")]
+    #[expect(clippy::should_implement_trait, reason = "Different signature than std::str::FromStr")]
     pub fn from_str(s: &str) -> Result<Self> {
         match s {
             "pending" => Ok(Self::Pending),
@@ -592,11 +592,11 @@ impl WorkflowStore {
             let now = chrono::Utc::now().timestamp();
             
             // Safe cast: sequence is always non-negative
-            #[allow(clippy::cast_possible_wrap, reason = "sequence is always small enough for i64")]
+            #[expect(clippy::cast_possible_wrap, reason = "sequence is always small enough for i64")]
             let sequence_i64 = sequence as i64;
             
             // Safe cast: checksum is u32, will always fit in i64
-            #[allow(clippy::cast_lossless, reason = "u32 to i64 is always lossless")]
+            #[expect(clippy::cast_lossless, reason = "u32 to i64 is always lossless")]
             let checksum_i64 = i64::from(checksum);
             
             conn.execute(
@@ -649,8 +649,8 @@ impl WorkflowStore {
                 let computed_checksum = crc32fast::hash(&state);
                 
                 // Safe cast: stored_checksum came from u32 originally, truncation is impossible
-                #[allow(clippy::cast_sign_loss, reason = "checksum was originally stored as u32")]
-                #[allow(clippy::cast_possible_truncation, reason = "checksum is u32, cannot truncate from i64")]
+                #[expect(clippy::cast_sign_loss, reason = "checksum was originally stored as u32")]
+                #[expect(clippy::cast_possible_truncation, reason = "checksum is u32, cannot truncate from i64")]
                 let stored_checksum_u32 = stored_checksum as u32;
                 
                 if computed_checksum != stored_checksum_u32 {
@@ -658,7 +658,7 @@ impl WorkflowStore {
                 }
                 
                 // Safe cast: sequence is always non-negative
-                #[allow(clippy::cast_sign_loss, reason = "sequence is always non-negative")]
+                #[expect(clippy::cast_sign_loss, reason = "sequence is always non-negative")]
                 let sequence_u64 = sequence as u64;
                 
                 Ok(Some(WorkflowCheckpoint {
@@ -694,7 +694,7 @@ impl WorkflowStore {
             let conn = Connection::open(&db_path)?;
             
             // Safe cast: keep_count is always reasonable size
-            #[allow(clippy::cast_possible_wrap, reason = "keep_count is always small")]
+            #[expect(clippy::cast_possible_wrap, reason = "keep_count is always small")]
             let keep_count_i64 = keep_count as i64;
             
             let deleted = conn.execute(

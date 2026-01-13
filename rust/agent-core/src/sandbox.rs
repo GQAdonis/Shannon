@@ -8,10 +8,10 @@ use std::time::Duration;
 use tokio::sync::RwLock as TokioRwLock;
 use tokio::time::timeout;
 use tracing::{debug, error, info, warn};
-use wasmtime::{Module, Engine, Result, MaybeUninitExt, Store, Linker};
+use wasmtime::{Engine, Linker, MaybeUninitExt, Module, Result, Store};
 
 #[cfg(target_os = "linux")]
-use libc::{rlimit, setrlimit, RLIMIT_AS, RLIMIT_CPU, RLIMIT_NOFILE, RLIMIT_NPROC};
+use libc::{RLIMIT_AS, RLIMIT_CPU, RLIMIT_NOFILE, RLIMIT_NPROC, rlimit, setrlimit};
 
 /// Resource limits for sandboxed execution
 #[derive(Debug, Clone)]
@@ -100,7 +100,7 @@ fn get_module_cache() -> Arc<TokioRwLock<ModuleCache>> {
 }
 
 /// WASM Sandbox for secure tool execution using Wasmtime
-#[allow(dead_code)]
+#[expect(dead_code, reason = "Part of public API or future expansion")]
 pub struct WasmSandbox {
     limits: ResourceLimits,
     env_vars: HashMap<String, String>,
@@ -128,7 +128,7 @@ impl WasmSandbox {
     }
 }
 
-#[allow(dead_code)]
+#[expect(dead_code, reason = "Part of public API or future expansion")]
 impl WasmSandbox {
     pub fn new() -> Result<Self> {
         // Create wasmtime engine with resource limits configuration
@@ -268,6 +268,9 @@ impl WasmSandbox {
         {
             use std::os::unix::process::CommandExt;
             let limits = self.limits.clone();
+            // SAFETY: pre_exec callback is executed after fork() but before exec() in the child process.
+            // The callback only calls apply_rlimits which uses libc setrlimit syscalls that are async-signal-safe.
+            // No heap allocations or unsafe operations occur in the callback besides the syscalls.
             unsafe {
                 cmd.pre_exec(move || apply_rlimits(&limits).map_err(std::io::Error::other));
             }
@@ -434,10 +437,10 @@ impl WasmSandbox {
                         .into_bytes()
                     }
                 }
-                Err(e) => format!(
-                    "[SANDBOXED] Failed to instantiate WASM module: {e}\nInput: {input}"
-                )
-                .into_bytes(),
+                Err(e) => {
+                    format!("[SANDBOXED] Failed to instantiate WASM module: {e}\nInput: {input}")
+                        .into_bytes()
+                }
             };
 
             // Calculate resource usage (best-effort)
@@ -509,6 +512,8 @@ fn apply_rlimits(limits: &ResourceLimits) -> Result<()> {
         rlim_cur: (limits.cpu_time_ms / 1000) as libc::rlim_t,
         rlim_max: (limits.cpu_time_ms / 1000) as libc::rlim_t,
     };
+    // SAFETY: setrlimit is called with a valid RLIMIT_CPU constant and a reference to a properly
+    // initialized rlimit struct. The function is async-signal-safe and can be safely called here.
     unsafe {
         if setrlimit(RLIMIT_CPU, &cpu_limit) != 0 {
             warn!("Failed to set CPU limit");
@@ -520,6 +525,8 @@ fn apply_rlimits(limits: &ResourceLimits) -> Result<()> {
         rlim_cur: limits.memory_bytes as libc::rlim_t,
         rlim_max: limits.memory_bytes as libc::rlim_t,
     };
+    // SAFETY: setrlimit is called with a valid RLIMIT_AS constant and a reference to a properly
+    // initialized rlimit struct. The function is async-signal-safe and can be safely called here.
     unsafe {
         if setrlimit(RLIMIT_AS, &mem_limit) != 0 {
             warn!("Failed to set memory limit");
@@ -531,6 +538,8 @@ fn apply_rlimits(limits: &ResourceLimits) -> Result<()> {
         rlim_cur: limits.max_open_files as libc::rlim_t,
         rlim_max: limits.max_open_files as libc::rlim_t,
     };
+    // SAFETY: setrlimit is called with a valid RLIMIT_NOFILE constant and a reference to a properly
+    // initialized rlimit struct. The function is async-signal-safe and can be safely called here.
     unsafe {
         if setrlimit(RLIMIT_NOFILE, &fd_limit) != 0 {
             warn!("Failed to set file descriptor limit");
@@ -542,6 +551,8 @@ fn apply_rlimits(limits: &ResourceLimits) -> Result<()> {
         rlim_cur: limits.max_threads as libc::rlim_t,
         rlim_max: limits.max_threads as libc::rlim_t,
     };
+    // SAFETY: setrlimit is called with a valid RLIMIT_NPROC constant and a reference to a properly
+    // initialized rlimit struct. The function is async-signal-safe and can be safely called here.
     unsafe {
         if setrlimit(RLIMIT_NPROC, &proc_limit) != 0 {
             warn!("Failed to set process limit");

@@ -179,7 +179,7 @@ impl PatternRegistry {
                     // Don't retry on last attempt
                     if attempt < MAX_RETRIES - 1 {
                         // Exponential backoff: 2^attempt seconds
-                        #[allow(
+                        #[expect(
                             clippy::cast_possible_truncation,
                             reason = "attempt is always < 32"
                         )]

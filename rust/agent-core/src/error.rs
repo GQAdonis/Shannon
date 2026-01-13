@@ -5,7 +5,7 @@ use thiserror::Error;
 pub enum AgentError {
     /// Tool execution errors
     #[error("Tool '{name}' execution failed: {reason}")]
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     ToolExecutionFailed { name: String, reason: String },
 
     /// LLM service errors
@@ -80,7 +80,7 @@ impl<T> From<std::sync::PoisonError<T>> for AgentError {
 // Helper functions for creating common errors
 impl AgentError {
     /// Create a tool execution error with context
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     pub fn tool_failed(name: impl Into<String>, reason: impl Into<String>) -> Self {
         AgentError::ToolExecutionFailed {
             name: name.into(),

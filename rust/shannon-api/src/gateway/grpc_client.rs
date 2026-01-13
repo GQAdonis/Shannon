@@ -287,7 +287,7 @@ impl OrchestratorClient {
     }
 
     /// Submit a task to the orchestrator via gRPC.
-    #[allow(unused_variables)]
+    #[expect(unused_variables, reason = "Parameter required by trait signature but unused in this implementation")]
     pub async fn submit_task(
         &self,
         request: SubmitTaskRequest,
@@ -340,7 +340,7 @@ impl OrchestratorClient {
     }
 
     /// Get the status of a task via gRPC.
-    #[allow(unused_variables)]
+    #[expect(unused_variables, reason = "Parameter required by trait signature but unused in this implementation")]
     pub async fn get_task_status(
         &self,
         request: GetTaskStatusRequest,
@@ -389,7 +389,7 @@ impl OrchestratorClient {
     }
 
     /// Cancel a task via gRPC.
-    #[allow(unused_variables)]
+    #[expect(unused_variables, reason = "Parameter required by trait signature but unused in this implementation")]
     pub async fn cancel_task(
         &self,
         request: CancelTaskRequest,
@@ -425,7 +425,7 @@ impl OrchestratorClient {
     }
 
     /// Pause a task via gRPC.
-    #[allow(unused_variables)]
+    #[expect(unused_variables, reason = "Parameter required by trait signature but unused in this implementation")]
     pub async fn pause_task(&self, task_id: &str, reason: Option<&str>) -> anyhow::Result<bool> {
         #[cfg(feature = "grpc")]
         {
@@ -450,7 +450,7 @@ impl OrchestratorClient {
     }
 
     /// Resume a paused task via gRPC.
-    #[allow(unused_variables)]
+    #[expect(unused_variables, reason = "Parameter required by trait signature but unused in this implementation")]
     pub async fn resume_task(&self, task_id: &str, reason: Option<&str>) -> anyhow::Result<bool> {
         #[cfg(feature = "grpc")]
         {

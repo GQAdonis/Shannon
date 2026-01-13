@@ -244,7 +244,7 @@ impl EventLog for SqliteEventLog {
                         conn.execute("COMMIT", [])
                             .context("Failed to commit transaction")?;
                         // Safe cast: next_seq is always non-negative from SQL query (COALESCE ensures >= 0)
-                        #[allow(clippy::cast_sign_loss, reason = "next_seq is always non-negative from SQL COALESCE")]
+                        #[expect(clippy::cast_sign_loss, reason = "next_seq is always non-negative from SQL COALESCE")]
                         return Ok(next_seq as u64);
                     }
                     Err(e) => {
@@ -326,7 +326,7 @@ impl EventLog for SqliteEventLog {
                 .context("Failed to get next index")?;
             
             // Safe cast: idx is always non-negative from SQL query (COALESCE ensures >= 0)
-            #[allow(clippy::cast_sign_loss, reason = "idx is always non-negative from SQL COALESCE")]
+            #[expect(clippy::cast_sign_loss, reason = "idx is always non-negative from SQL COALESCE")]
             Ok(idx as u64)
         })
         .await

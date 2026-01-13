@@ -41,7 +41,7 @@ impl ChainOfThought {
     }
 
     /// Build the system prompt for CoT reasoning.
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     fn system_prompt(&self) -> String {
         r#"You are a reasoning assistant that thinks step by step.
 

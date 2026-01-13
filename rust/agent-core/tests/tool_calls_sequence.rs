@@ -1,5 +1,5 @@
 use shannon_agent_core::grpc_server::proto::agent::agent_service_server::AgentService;
-use shannon_agent_core::grpc_server::{proto, AgentServiceImpl};
+use shannon_agent_core::grpc_server::{AgentServiceImpl, proto};
 use tonic::Request;
 
 // Check if Python service is available for integration tests
@@ -54,7 +54,8 @@ async fn test_multi_tool_sequence_mixed_success() {
     }
 
     // Set the LLM service URL for the test
-    // SAFETY: This is a test environment variable
+    // SAFETY: Setting test environment variable in a network-enabled integration test.
+    // The variable configures the service URL and is only used by this test instance.
     unsafe {
         std::env::set_var("LLM_SERVICE_URL", "http://localhost:8000");
     }

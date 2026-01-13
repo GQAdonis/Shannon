@@ -3,11 +3,15 @@ use std::path::Path;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Ensure a usable `protoc` is available (vendored fallback)
     if std::env::var_os("PROTOC").is_none()
-        && let Ok(pb) = protoc_bin_vendored::protoc_bin_path() {
-            unsafe {
-                std::env::set_var("PROTOC", pb);
-            }
+        && let Ok(pb) = protoc_bin_vendored::protoc_bin_path()
+    {
+        // SAFETY: Setting PROTOC environment variable during build script execution.
+        // Build scripts run in a single-threaded context before the main binary is built,
+        // so there's no risk of data races. The variable is only used by the build process.
+        unsafe {
+            std::env::set_var("PROTOC", pb);
         }
+    }
     // Determine proto path - check if we're in Docker or local
     let proto_path = if Path::new("/protos").exists() {
         // Docker environment
@@ -25,7 +29,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tonic_prost_build::configure()
         .build_server(true)
         .build_client(true)
-        .file_descriptor_set_path(format!("{}/shannon_descriptor.bin", std::env::var("OUT_DIR")?))
+        .file_descriptor_set_path(format!(
+            "{}/shannon_descriptor.bin",
+            std::env::var("OUT_DIR")?
+        ))
         .compile_protos(&[&common_proto, &agent_proto], &[&proto_path_string])?;
     Ok(())
 }

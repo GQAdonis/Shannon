@@ -458,9 +458,9 @@ impl<E: EventLog + 'static> EmbeddedWorker<E> {
 /// Control state for workflow pause/resume.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct ControlState {
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     is_paused: bool,
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     is_cancelled: bool,
 }
 

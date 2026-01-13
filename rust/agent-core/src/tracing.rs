@@ -1,6 +1,6 @@
 use opentelemetry::{global, trace::TracerProvider};
 use opentelemetry_otlp::{SpanExporter, WithExportConfig};
-use opentelemetry_sdk::{trace, Resource};
+use opentelemetry_sdk::{Resource, trace};
 use opentelemetry_semantic_conventions::resource::{SERVICE_NAME, SERVICE_VERSION};
 use std::env;
 use std::time::Duration;
@@ -125,9 +125,10 @@ pub fn inject_trace_context(context: &opentelemetry::Context, headers: &mut http
     impl Injector for HeaderInjector<'_> {
         fn set(&mut self, key: &str, value: String) {
             if let Ok(header_name) = http::header::HeaderName::from_bytes(key.as_bytes())
-                && let Ok(header_value) = http::header::HeaderValue::from_str(&value) {
-                    self.0.insert(header_name, header_value);
-                }
+                && let Ok(header_value) = http::header::HeaderValue::from_str(&value)
+            {
+                self.0.insert(header_name, header_value);
+            }
         }
     }
 
@@ -147,9 +148,10 @@ pub fn inject_current_trace_context(headers: &mut http::HeaderMap) {
     impl Injector for HeaderInjector<'_> {
         fn set(&mut self, key: &str, value: String) {
             if let Ok(header_name) = http::header::HeaderName::from_bytes(key.as_bytes())
-                && let Ok(header_value) = http::header::HeaderValue::from_str(&value) {
-                    self.0.insert(header_name, header_value);
-                }
+                && let Ok(header_value) = http::header::HeaderValue::from_str(&value)
+            {
+                self.0.insert(header_name, header_value);
+            }
         }
     }
 
@@ -219,12 +221,14 @@ mod tests {
 
     #[test]
     fn test_init_basic_tracing() {
-        // SAFETY: This is a test environment variable
+        // SAFETY: Setting test environment variable in a test context to control tracing initialization.
+        // The variable is only used by this test and is cleaned up afterwards to prevent pollution.
         unsafe {
             env::set_var("OTEL_ENABLED", "false");
         }
         let result = init_tracing();
         assert!(result.is_ok());
+        // SAFETY: Removing test environment variable after test completion to prevent pollution.
         unsafe {
             env::remove_var("OTEL_ENABLED");
         }

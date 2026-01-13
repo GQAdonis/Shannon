@@ -12,12 +12,12 @@ use crate::memory::MemoryPool;
 use crate::wasi_sandbox::WasiSandbox;
 
 // Include the generated proto code
-#[allow(clippy::enum_variant_names)]
+#[expect(clippy::enum_variant_names, reason = "Proto-generated enums follow protocol naming conventions")]
 pub mod proto {
     pub mod agent {
         tonic::include_proto!("shannon.agent");
     }
-    #[allow(clippy::enum_variant_names)]
+    #[expect(clippy::enum_variant_names, reason = "Proto-generated enums follow protocol naming conventions")]
     pub mod common {
         tonic::include_proto!("shannon.common");
     }

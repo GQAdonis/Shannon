@@ -326,7 +326,7 @@ impl MemoryPool {
         }
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     pub async fn deallocate(&self, key: &str) -> Result<()> {
         let mut pools = self.pools.write().await;
 
@@ -434,7 +434,7 @@ impl MemoryPool {
         freed
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     pub async fn clear(&self) {
         let mut pools = self.pools.write().await;
         pools.clear();
@@ -450,7 +450,7 @@ impl MemoryPool {
         (current, self.max_total_size)
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     pub async fn get_detailed_stats(&self) -> MemoryStats {
         let pools = self.pools.read().await;
         let current_size = *self.current_size.read().await;
@@ -467,7 +467,7 @@ impl MemoryPool {
         }
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     fn calculate_fragmentation(&self, pools: &HashMap<String, MemorySlot>) -> f64 {
         if pools.is_empty() {
             return 0.0;
@@ -489,7 +489,7 @@ impl MemoryPool {
     }
 
     /// Check memory health and return warnings if any
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     pub async fn health_check(&self) -> Vec<String> {
         let mut warnings = Vec::new();
         let (current, max) = self.get_usage_stats().await;

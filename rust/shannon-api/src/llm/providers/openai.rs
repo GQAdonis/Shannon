@@ -192,7 +192,7 @@ impl LlmDriver for OpenAiDriver {
 /// `OpenAI` streaming response chunk.
 #[derive(Debug, Deserialize)]
 struct OpenAiStreamChunk {
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     id: Option<String>,
     choices: Option<Vec<OpenAiChoice>>,
     usage: Option<OpenAiUsage>,
@@ -203,7 +203,7 @@ struct OpenAiStreamChunk {
 struct OpenAiChoice {
     delta: Option<OpenAiDelta>,
     finish_reason: Option<String>,
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     index: Option<usize>,
 }
 

@@ -199,7 +199,7 @@ impl Database {
                 Ok(Self::SQLite(client))
             }
             // Fallback to in-memory if features not enabled
-            #[allow(unreachable_patterns)]
+            #[expect(unreachable_patterns, reason = "Defensive pattern for forward compatibility with proto changes")]
             _ => {
                 tracing::warn!(
                     "Database feature not enabled for config {:?}, using in-memory store",

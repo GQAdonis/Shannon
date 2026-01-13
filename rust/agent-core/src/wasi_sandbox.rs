@@ -89,7 +89,7 @@ impl WasiSandbox {
         })
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     pub fn allow_path(mut self, path: impl Into<PathBuf>) -> Self {
         self.allowed_paths.push(path.into());
         self
@@ -115,25 +115,25 @@ impl WasiSandbox {
         self
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     pub fn set_table_elements_limit(mut self, elems: usize) -> Self {
         self.table_elements_limit = elems;
         self
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     pub fn set_instances_limit(mut self, n: usize) -> Self {
         self.instances_limit = n;
         self
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     pub fn set_tables_limit(mut self, n: usize) -> Self {
         self.tables_limit = n;
         self
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "Part of public API or future expansion")]
     pub fn set_memories_limit(mut self, n: usize) -> Self {
         self.memories_limit = n;
         self
